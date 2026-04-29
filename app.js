@@ -174,6 +174,98 @@ const screens = {
       </div>`;
   },
 
+  // ---------- ACCOUNT DETAIL ----------
+  account_detail: (st) => {
+    const a = st.account || {};
+    const stat = st.stat || {};
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">${escape(a.first_name || a.phone)}</h2></div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div class="avatar ${a.status === 'active' ? 'green' : 'orange'}" style="width:56px;height:56px;font-size:22px">${initials(a.first_name || a.phone)}</div>
+            <div>
+              <div style="font-weight:600;font-size:18px">${escape(a.first_name || '')} ${a.username ? `<span style="color:var(--text-muted);font-weight:400">@${escape(a.username)}</span>` : ''}</div>
+              <div style="font-size:13px;color:var(--text-muted)">${escape(a.phone)}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <div><div style="font-size:11px;color:var(--text-muted)">Сегодня</div><div style="font-weight:600">${a.sent_today}/${a.daily_limit}</div></div>
+            <div><div style="font-size:11px;color:var(--text-muted)">Всего отправлено</div><div style="font-weight:600">${stat.sent_total ?? '—'}</div></div>
+            <div><div style="font-size:11px;color:var(--text-muted)">Ответов</div><div style="font-weight:600">${stat.replied ?? '—'}</div></div>
+            <div><div style="font-size:11px;color:var(--text-muted)">Диалогов</div><div style="font-weight:600">${stat.conversations ?? '—'}</div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Настройки</div>
+        <div class="card">
+          <label style="font-size:12px;color:var(--text-muted)">Дневной лимит сообщений</label>
+          <input id="ad-limit" type="number" min="1" max="200" value="${a.daily_limit}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Прокси</label>
+          <input id="ad-proxy" placeholder="socks5://..." value="${escape(a.proxy || '')}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
+        </div>
+        <button class="btn full" style="margin-top:8px" data-action="account-save" data-id="${a.id}">Сохранить</button>
+        ${a.status === 'active'
+          ? `<button class="btn full secondary" style="margin-top:8px" data-action="account-toggle" data-id="${a.id}" data-to="paused">⏸ Поставить на паузу</button>`
+          : `<button class="btn full secondary" style="margin-top:8px" data-action="account-toggle" data-id="${a.id}" data-to="active">▶ Активировать</button>`
+        }
+        <button class="btn full secondary" style="margin-top:8px;color:#ef4444" data-action="account-delete" data-id="${a.id}">Удалить из CRM</button>
+      </div>`;
+  },
+
+  // ---------- CAMPAIGN DETAIL ----------
+  campaign_detail: (st) => {
+    const c = st.campaign || {};
+    const items = st.items || [];
+    const filter = st.filter || 'all';
+    const counts = { sent: 0, queued: 0, sending: 0, failed: 0, skipped: 0 };
+    items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
+    const filtered = filter === 'all' ? items : items.filter(i => i.status === filter);
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">${escape(c.name)}</h2></div>
+        <div class="card">
+          <div class="card-row">
+            <div style="font-size:13px;color:var(--text-muted)">Статус</div>
+            <span class="campaign-status ${c.status}">${c.status}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:10px">
+            ${c.status === 'live' ?
+              `<button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="pause">⏸ Пауза</button>` :
+              `<button class="btn" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="start">▶ Старт</button>`
+            }
+            <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹ Стоп</button>
+          </div>
+        </div>
+
+        <div class="stage-strip">
+          <div class="stage-chip ${filter==='all'?'active':''}" data-cd-filter="all">Все · ${items.length}</div>
+          <div class="stage-chip ${filter==='queued'?'active':''}" data-cd-filter="queued">В очереди · ${counts.queued||0}</div>
+          <div class="stage-chip ${filter==='sent'?'active':''}" data-cd-filter="sent">Отправлено · ${counts.sent||0}</div>
+          <div class="stage-chip ${filter==='failed'?'active':''}" data-cd-filter="failed">Сбои · ${counts.failed||0}</div>
+          <div class="stage-chip ${filter==='skipped'?'active':''}" data-cd-filter="skipped">Пропущено · ${counts.skipped||0}</div>
+        </div>
+
+        ${filtered.length === 0 ? '<div class="empty"><div class="empty-title">Нет записей</div></div>' :
+          filtered.slice(0, 100).map(i => `
+            <div class="card" style="padding:10px 12px">
+              <div class="card-row">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:14px">${escape(i.full_name || i.company || i.username || '?')}</div>
+                  <div style="font-size:12px;color:var(--text-muted)">${i.username?'@'+escape(i.username):''}${i.company?' · '+escape(i.company):''}</div>
+                  ${i.rendered ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-style:italic">"${escape(i.rendered).slice(0,80)}…"</div>` : ''}
+                  ${i.error ? `<div style="font-size:11px;color:#ef4444;margin-top:4px">${escape(i.error)}</div>` : ''}
+                </div>
+                <span class="lead-score ${i.status==='sent'?'cold':i.status==='failed'?'hot':'warm'}">${escape(i.status)}</span>
+              </div>
+            </div>
+          `).join('')
+        }
+      </div>`;
+  },
+
   // ---------- ADD ACCOUNT ----------
   add_account: (st) => {
     const step = st?.step || 'phone';
@@ -309,7 +401,7 @@ const screens = {
           const pct = total ? Math.round(c.sent / total * 100) : 0;
           return `
           <div class="card">
-            <div class="card-row">
+            <div class="card-row" data-action="open-campaign" data-id="${c.id}" style="cursor:pointer">
               <div class="card-title">${escape(c.name)}</div>
               <span class="campaign-status ${c.status}">${c.status}</span>
             </div>
@@ -324,7 +416,8 @@ const screens = {
                 `<button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="pause">⏸ Пауза</button>` :
                 `<button class="btn" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="start">▶ Старт</button>`
               }
-              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹ Стоп</button>
+              <button class="btn secondary" style="flex:1;padding:8px" data-action="open-campaign" data-id="${c.id}">📊 Детали</button>
+              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹</button>
             </div>
           </div>`;
         }).join('')}
@@ -625,8 +718,9 @@ const screens = {
             </div>
           `).join('')}
         </div>
-        <div style="display:flex;gap:6px;padding:8px 0;align-items:center">
+        <div style="display:flex;gap:4px;padding:8px 0;align-items:center">
           <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Прикрепить файл" style="font-size:22px">📎</button>
+          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка ответа" style="font-size:18px;color:var(--accent)">✨</button>
           <input type="file" id="attach-input" style="display:none"
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
           <input id="reply-input" type="text" placeholder="Сообщение или подпись"
@@ -802,6 +896,17 @@ async function loadCampaigns() {
   } catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
+async function openCampaign(id) {
+  try {
+    const [items, list] = await Promise.all([
+      API.campaigns.outbox(id).catch(() => []),
+      API.campaigns.list(),
+    ]);
+    const campaign = list.find(c => c.id === id);
+    render('campaign_detail', { campaign, items, filter: 'all' });
+  } catch (e) { toast(`Ошибка: ${e.message}`); }
+}
+
 async function loadParserTool() {
   try { const accounts = await API.accounts.list(); render('tool_parser', { accounts }); }
   catch { render('tool_parser', { accounts: [] }); }
@@ -902,7 +1007,31 @@ async function handleAction(action, el) {
     }
     case 'open-account': {
       const id = parseInt(el.dataset.id, 10);
-      const yes = await confirm_('Удалить этот аккаунт из CRM? (сессия сохранится в файлах)');
+      const account = (screenState.accounts?.accounts || []).find(a => a.id === id);
+      const stat = (screenState.accounts?.stats || {})[id] || {};
+      if (account) render('account_detail', { account, stat });
+      break;
+    }
+    case 'account-save': {
+      const id = parseInt(el.dataset.id, 10);
+      const data = {
+        daily_limit: parseInt(document.getElementById('ad-limit').value, 10),
+        proxy: document.getElementById('ad-proxy').value.trim() || '',
+      };
+      try { await API.accounts.update(id, data); toast('Сохранено'); loadAccounts(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'account-toggle': {
+      const id = parseInt(el.dataset.id, 10);
+      const to = el.dataset.to;
+      try { await API.accounts.update(id, { status: to }); toast(to==='paused'?'Поставлен на паузу':'Активирован'); loadAccounts(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'account-delete': {
+      const id = parseInt(el.dataset.id, 10);
+      const yes = await confirm_('Удалить аккаунт из CRM? (файл сессии сохранится)');
       if (yes) { try { await API.accounts.remove(id); loadAccounts(); } catch (e) { toast(`Ошибка: ${e.message}`); } }
       break;
     }
@@ -1149,8 +1278,24 @@ async function handleAction(action, el) {
     case 'campaign-control': {
       const id = parseInt(el.dataset.id, 10);
       const act = el.dataset.act;
-      try { await API.campaigns.control(id, act); loadCampaigns(); }
-      catch (e) { toast(`Ошибка: ${e.message}`); }
+      try {
+        await API.campaigns.control(id, act);
+        if (currentScreen === 'campaign_detail') openCampaign(id);
+        else loadCampaigns();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'open-campaign': openCampaign(parseInt(el.dataset.id, 10)); break;
+    case 'ai-suggest': {
+      const cid = parseInt(el.dataset.id, 10);
+      const inp = document.getElementById('reply-input');
+      inp.value = 'Думаю…';
+      inp.disabled = true;
+      try {
+        const r = await API.inbox.suggest(cid);
+        inp.value = r.suggestion || '';
+      } catch (e) { inp.value = ''; toast(`AI ошибка: ${e.message}\nПроверьте ANTHROPIC_API_KEY в .env`); }
+      finally { inp.disabled = false; inp.focus(); }
       break;
     }
 
@@ -1217,8 +1362,11 @@ document.addEventListener('click', (e) => {
       return;
     }
     if (stage.dataset.mdStage !== undefined) {
-      // Toggle Monday import stage chip
       stage.classList.toggle('active');
+      return;
+    }
+    if (stage.dataset.cdFilter !== undefined) {
+      render('campaign_detail', { ...screenState.campaign_detail, filter: stage.dataset.cdFilter });
       return;
     }
     if (stage.dataset.stage !== undefined) {

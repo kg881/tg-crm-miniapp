@@ -40,6 +40,7 @@ const API = {
       if (caption) fd.append('caption', caption);
       return API.req('POST', `/api/inbox/conversations/${cid}/reply_media`, fd);
     },
+    suggest:   (cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/suggest_reply`),
   },
 
   lists: {
@@ -67,6 +68,7 @@ const API = {
     list:      ()             => API.req('GET',    '/api/campaigns'),
     create:    (data)         => API.req('POST',   '/api/campaigns', data),
     control:   (id, action)   => API.req('POST',   `/api/campaigns/${id}/${action}`),
+    outbox:    (id, status)   => API.req('GET',    `/api/campaigns/${id}/outbox${status?`?status=${status}`:''}`),
   },
 
   ai: {
