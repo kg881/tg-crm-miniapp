@@ -242,8 +242,189 @@ const screens = {
             <span class="lead-score cold">${l.count}</span>
           </div>
         `).join('')}
-        ${lists.length ? '<button class="btn full" style="margin-top:12px" data-action="upload-csv">+ Загрузить CSV</button>' : ''}
+        ${lists.length ? `
+          <button class="btn full" style="margin-top:12px" data-action="upload-csv">+ Загрузить CSV</button>
+          <button class="btn full secondary" style="margin-top:8px" data-action="monday-import">▣ Импорт из Monday</button>
+        ` : `
+          <button class="btn full secondary" style="margin-top:8px" data-action="monday-import">▣ Импорт из Monday</button>
+        `}
       </div>`;
+  },
+
+  // ---------- MONDAY IMPORT ----------
+  monday_import: (st) => {
+    const stages = ['Initial Contact','Trial Activated','Testnet','Objection handling','Winback','Paid','Active Partner'];
+    const selected = st?.selected_stages || ['Trial Activated','Objection handling','Initial Contact'];
+    const status = st?.status || null;
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Импорт из Monday</h2></div>
+        <div class="card">
+          <label style="font-size:12px;color:var(--text-muted)">ID борда</label>
+          <input id="md-board" value="${escape(st?.board_id || '9027825117')}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Название нового списка</label>
+          <input id="md-name" value="${escape(st?.list_name || 'Из Monday — ' + new Date().toISOString().slice(0,10))}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Какие стейджи импортировать</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="md-stages">
+            ${stages.map(s => `
+              <div class="stage-chip ${selected.includes(s)?'active':''}" data-md-stage="${escape(s)}">${escape(s)}</div>
+            `).join('')}
+          </div>
+        </div>
+        <button class="btn full" style="margin-top:8px" data-action="monday-import-go">Импортировать</button>
+        ${status ? `<div class="card" style="margin-top:8px;${status.error?'color:#ef4444':''}">${escape(status.message)}</div>` : ''}
+        <div style="margin-top:16px;font-size:11px;color:var(--text-muted);text-align:center">
+          Импортируются только лиды с TG-username в поле Contact Person.<br>
+          Если ничего не импортируется — проверьте MONDAY_TOKEN в .env бэкенда.
+        </div>
+      </div>`;
+  },
+
+  // ---------- CAMPAIGNS LIST ----------
+  campaigns: (st) => {
+    const camps = st?.campaigns ?? [];
+    const lists = st?.lists ?? [];
+    const tmpls = st?.templates ?? [];
+    const accs  = st?.accounts ?? [];
+    const canCreate = lists.length && tmpls.length && accs.length;
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Кампании</h2><button class="add-btn" data-action="campaign-new" ${canCreate?'':'disabled style="opacity:.4"'}>+</button></div>
+        ${!canCreate ? `
+          <div class="card" style="background:#fef3c7;color:#92400e;font-size:13px">
+            Чтобы создать кампанию, нужно: ${!lists.length?'список лидов, ':''}${!tmpls.length?'шаблон, ':''}${!accs.length?'аккаунт':''}
+          </div>
+        ` : ''}
+        ${camps.length === 0 ? `
+          <div class="empty"><div class="empty-ico">▶</div>
+            <div class="empty-title">Нет кампаний</div>
+            <div>Запустите первую — выберите список, шаблон и аккаунты</div>
+            ${canCreate?'<button class="btn" style="margin-top:16px" data-action="campaign-new">Создать кампанию</button>':''}
+          </div>
+        ` : camps.map(c => {
+          const ll = lists.find(x=>x.id===c.list_id);
+          const total = ll?.count || 0;
+          const pct = total ? Math.round(c.sent / total * 100) : 0;
+          return `
+          <div class="card">
+            <div class="card-row">
+              <div class="card-title">${escape(c.name)}</div>
+              <span class="campaign-status ${c.status}">${c.status}</span>
+            </div>
+            <div class="progress" style="margin-top:10px"><div class="progress-bar" style="width:${pct}%"></div></div>
+            <div class="campaign-meta">
+              <span>Отправлено: <b>${c.sent}/${total}</b></span>
+              <span>Ответили: <b>${c.replied}</b></span>
+              <span>Сбоев: <b>${c.failed}</b></span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:10px">
+              ${c.status === 'live' ?
+                `<button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="pause">⏸ Пауза</button>` :
+                `<button class="btn" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="start">▶ Старт</button>`
+              }
+              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹ Стоп</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  },
+
+  // ---------- CAMPAIGN WIZARD ----------
+  campaign_wizard: (st) => {
+    const step = st?.step || 1;
+    const lists = st?.lists ?? [];
+    const tmpls = st?.templates ?? [];
+    const accs  = st?.accounts ?? [];
+    const data  = st?.data || {};
+    const stepDots = [1,2,3,4].map(n =>
+      `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${n<=step?'var(--accent)':'var(--border)'};margin-right:6px"></span>`
+    ).join('');
+    if (step === 1) return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Новая кампания · 1/4</h2></div>
+        <div style="margin-bottom:14px">${stepDots}</div>
+        <div class="section-title">Название</div>
+        <input id="cw-name" value="${escape(data.name || 'Кампания ' + new Date().toISOString().slice(0,10))}"
+               style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:15px">
+        <div class="section-title">Список лидов</div>
+        ${lists.map(l => `
+          <div class="lead" data-action="cw-pick-list" data-id="${l.id}" style="${data.list_id===l.id?'border:2px solid var(--accent)':''}">
+            <div class="avatar blue">▤</div>
+            <div class="lead-body"><div class="lead-name">${escape(l.name)}</div><div class="lead-status">${l.count} лидов · ${escape(l.source)}</div></div>
+            ${data.list_id===l.id ? '<span style="color:var(--accent);font-size:18px">✓</span>' : ''}
+          </div>
+        `).join('')}
+        <button class="btn full" style="margin-top:8px" data-action="cw-next" data-from="1">Далее</button>
+      </div>`;
+    if (step === 2) return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Шаблон · 2/4</h2></div>
+        <div style="margin-bottom:14px">${stepDots}</div>
+        ${tmpls.map(t => `
+          <div class="card" data-action="cw-pick-template" data-id="${t.id}" style="${data.template_id===t.id?'border:2px solid var(--accent)':''}">
+            <div class="card-row">
+              <div class="card-title">${escape(t.name)}</div>
+              ${data.template_id===t.id ? '<span style="color:var(--accent);font-size:18px">✓</span>' : ''}
+            </div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:6px">${escape((t.body || '').slice(0,140))}…</div>
+          </div>
+        `).join('')}
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="2">Назад</button>
+          <button class="btn" style="flex:1" data-action="cw-next" data-from="2">Далее</button>
+        </div>
+      </div>`;
+    if (step === 3) {
+      const picked = data.account_ids || [];
+      return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Аккаунты · 3/4</h2></div>
+        <div style="margin-bottom:14px">${stepDots}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Выберите аккаунты для рассылки. Сообщения распределятся round-robin.</div>
+        ${accs.map(a => {
+          const on = picked.includes(a.id);
+          return `
+          <div class="lead" data-action="cw-toggle-acc" data-id="${a.id}" style="${on?'border:2px solid var(--accent)':''}">
+            <div class="avatar ${a.status==='active'?'green':'orange'}">${initials(a.first_name||a.phone)}</div>
+            <div class="lead-body">
+              <div class="lead-name">${escape(a.first_name||a.phone)}</div>
+              <div class="lead-status">${escape(a.phone)} · ${a.daily_limit}/день</div>
+            </div>
+            <span style="font-size:18px;color:${on?'var(--accent)':'var(--text-muted)'}">${on?'☑':'☐'}</span>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="3">Назад</button>
+          <button class="btn" style="flex:1" data-action="cw-next" data-from="3">Далее</button>
+        </div>
+      </div>`;
+    }
+    if (step === 4) {
+      const ll = lists.find(l=>l.id===data.list_id);
+      const tt = tmpls.find(t=>t.id===data.template_id);
+      const aa = accs.filter(a=>(data.account_ids||[]).includes(a.id));
+      const totalCap = aa.reduce((s,a)=>s+a.daily_limit,0);
+      const days = totalCap ? Math.ceil((ll?.count||0) / totalCap) : '∞';
+      return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Подтверждение · 4/4</h2></div>
+        <div style="margin-bottom:14px">${stepDots}</div>
+        <div class="card">
+          <div class="card-row"><div class="card-title">${escape(data.name)}</div></div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:10px;line-height:1.7">
+            <div>📋 Список: <b style="color:var(--text)">${escape(ll?.name||'?')}</b> (${ll?.count||0} лидов)</div>
+            <div>✉ Шаблон: <b style="color:var(--text)">${escape(tt?.name||'?')}</b></div>
+            <div>⚇ Аккаунтов: <b style="color:var(--text)">${aa.length}</b> · общий капасити <b style="color:var(--text)">${totalCap}/день</b></div>
+            <div>⏱ Расчётно займёт: <b style="color:var(--text)">~${days} ${typeof days==='number' && days===1?'день':'дней'}</b></div>
+          </div>
+        </div>
+        <button class="btn full" style="margin-top:8px" data-action="cw-create-and-start">Создать и запустить</button>
+        <button class="btn full secondary" style="margin-top:8px" data-action="cw-create-only">Создать как draft</button>
+        <button class="btn full secondary" style="margin-top:8px" data-action="cw-back" data-from="4">Назад</button>
+      </div>`;
+    }
   },
 
   // ---------- LIST DETAIL (с таблицей лидов и фильтром по статусу) ----------
@@ -456,39 +637,60 @@ const screens = {
   },
 
   // ---------- TOOLS PLACEHOLDERS ----------
-  tool_parser: () => `
+  tool_parser: (st) => {
+    const accs = st?.accounts ?? [];
+    const sel = st?.account_id || (accs[0]?.id);
+    return `
     <div class="screen">
       <div class="head-row"><h2 style="font-size:18px">Парсер чатов</h2></div>
       <div class="card">
-        <label style="font-size:12px;color:var(--text-muted)">Ссылка на чат / название</label>
-        <input id="parser-input" placeholder="https://t.me/+abcDEF... или название чата"
+        <label style="font-size:12px;color:var(--text-muted)">Аккаунт для парсинга</label>
+        <select id="parser-acc" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          ${accs.map(a => `<option value="${a.id}" ${a.id===sel?'selected':''}>${escape(a.first_name||a.phone)} (${escape(a.phone)})</option>`).join('')}
+        </select>
+        <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Чат: invite-ссылка / @username / название</label>
+        <input id="parser-target" placeholder="https://t.me/+abcDEF..."
                style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
-          Подключится к указанному чату от вашего основного аккаунта, соберёт всех участников с биографиями, отфильтрует по ICP BitOK.
-        </div>
+        <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Название нового списка</label>
+        <input id="parser-listname" value="Парсер ${new Date().toISOString().slice(0,10)}"
+               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+        <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Сколько последних сообщений сканировать</label>
+        <input id="parser-limit" type="number" value="5000" min="100" max="20000"
+               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
       </div>
-      <button class="btn full" style="margin-top:8px" data-action="run-parser">Собрать (TODO — backend endpoint)</button>
-      <div style="margin-top:24px;font-size:12px;color:var(--text-muted);text-align:center">
-        Сейчас парсер живёт отдельно в проекте /проекты/v2.0/. Подключение к Mini App — следующая итерация.
+      <button class="btn full" style="margin-top:8px" data-action="run-parser-real">Собрать участников</button>
+      <div id="parser-result" style="margin-top:8px"></div>
+      <div style="margin-top:16px;font-size:11px;color:var(--text-muted);text-align:center">
+        Парсинг ~5к сообщений занимает 30-60 секунд. По окончании появится новый список.
       </div>
-    </div>`,
+    </div>`;
+  },
 
-  tool_search: () => `
+  tool_search: (st) => {
+    const accs = st?.accounts ?? [];
+    const sel = st?.account_id || (accs[0]?.id);
+    return `
     <div class="screen">
       <div class="head-row"><h2 style="font-size:18px">Поиск чатов</h2></div>
       <div class="card">
-        <label style="font-size:12px;color:var(--text-muted)">Ключевые слова (через запятую)</label>
+        <label style="font-size:12px;color:var(--text-muted)">Аккаунт</label>
+        <select id="search-acc" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          ${accs.map(a => `<option value="${a.id}" ${a.id===sel?'selected':''}>${escape(a.first_name||a.phone)} (${escape(a.phone)})</option>`).join('')}
+        </select>
+        <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Ключевые слова (через запятую)</label>
         <input id="search-keywords" placeholder="AML, KYC, обменник, exchange"
                style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
         <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Чаты для поиска (по одному в строке)</label>
         <textarea id="search-chats" rows="5" placeholder="@chat1&#10;@chat2&#10;https://t.me/+abc..."
                   style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical"></textarea>
+        <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Название нового списка</label>
+        <input id="search-listname" value="Поиск ${new Date().toISOString().slice(0,10)}"
+               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
       </div>
-      <button class="btn full" style="margin-top:8px" data-action="run-search">Искать (TODO — backend endpoint)</button>
-      <div style="margin-top:24px;font-size:12px;color:var(--text-muted);text-align:center">
-        Поиск по сообщениям с указанными ключевыми словами в выбранных чатах. Авторы релевантных сообщений попадут в новый список лидов.
-      </div>
-    </div>`,
+      <button class="btn full" style="margin-top:8px" data-action="run-search-real">Искать</button>
+      <div id="search-result" style="margin-top:8px"></div>
+    </div>`;
+  },
 
   // ---------- MORE ----------
   more: () => `
@@ -588,6 +790,28 @@ async function loadTemplates() {
   catch (e) { render('templates', { templates: [] }); toast(`Ошибка: ${e.message}`); }
 }
 
+async function loadCampaigns() {
+  try {
+    const [campaigns, lists, templates, accounts] = await Promise.all([
+      API.campaigns.list().catch(() => []),
+      API.lists.list().catch(() => []),
+      API.templates.list().catch(() => []),
+      API.accounts.list().catch(() => []),
+    ]);
+    render('campaigns', { campaigns, lists, templates, accounts });
+  } catch (e) { toast(`Ошибка: ${e.message}`); }
+}
+
+async function loadParserTool() {
+  try { const accounts = await API.accounts.list(); render('tool_parser', { accounts }); }
+  catch { render('tool_parser', { accounts: [] }); }
+}
+
+async function loadSearchTool() {
+  try { const accounts = await API.accounts.list(); render('tool_search', { accounts }); }
+  catch { render('tool_search', { accounts: [] }); }
+}
+
 async function loadInbox() {
   render('inbox', { conversations: null });
   try {
@@ -637,11 +861,9 @@ async function handleAction(action, el) {
     case 'goto-accounts':   loadAccounts(); break;
     case 'goto-lists':      loadLists(); break;
     case 'goto-templates':  loadTemplates(); break;
-    case 'goto-campaigns':  toast('Кампании — следующая итерация'); break;
-    case 'parse-group':     render('tool_parser'); break;
-    case 'find-groups':     render('tool_search'); break;
-    case 'run-parser':      toast('Backend endpoint для парсера ещё не готов — следующая итерация'); break;
-    case 'run-search':      toast('Backend endpoint для поиска ещё не готов — следующая итерация'); break;
+    case 'goto-campaigns':  loadCampaigns(); break;
+    case 'parse-group':     loadParserTool(); break;
+    case 'find-groups':     loadSearchTool(); break;
 
     // Accounts
     case 'add-account':     render('add_account', { step: 'phone', phone: '', proxy: '' }); break;
@@ -839,6 +1061,136 @@ async function handleAction(action, el) {
       break;
     }
     case 'contact-support': openTgUser(SUPPORT); break;
+
+    // Monday import
+    case 'monday-import': render('monday_import', { selected_stages: ['Trial Activated','Objection handling','Initial Contact'] }); break;
+    case 'monday-import-go': {
+      const board_id = parseInt(document.getElementById('md-board').value, 10);
+      const list_name = document.getElementById('md-name').value.trim() || 'Из Monday';
+      const stages = screenState.monday_import?.selected_stages || [];
+      const root = document.querySelector('#md-stages');
+      // Берём активные чипы
+      const active_stages = Array.from(root.querySelectorAll('.stage-chip.active')).map(c => c.dataset.mdStage);
+      try {
+        render('monday_import', { ...screenState.monday_import, status: { message: 'Импортирую…' } });
+        const r = await API.monday.importBoard({ board_id, list_name, stages: active_stages });
+        render('monday_import', {
+          ...screenState.monday_import,
+          status: { message: `✅ Импортировано: ${r.imported}, пропущено без TG-username: ${r.skipped_no_username}` },
+        });
+        setTimeout(() => loadLists(), 1500);
+      } catch (e) {
+        render('monday_import', { ...screenState.monday_import, status: { message: `Ошибка: ${e.message}`, error: true } });
+      }
+      break;
+    }
+
+    // Campaign wizard
+    case 'campaign-new': {
+      const st = screenState.campaigns || {};
+      render('campaign_wizard', { step: 1, lists: st.lists, templates: st.templates, accounts: st.accounts, data: { name: 'Кампания ' + new Date().toISOString().slice(0,10), account_ids: [] } });
+      break;
+    }
+    case 'cw-pick-list': {
+      const id = parseInt(el.dataset.id, 10);
+      const w = screenState.campaign_wizard;
+      render('campaign_wizard', { ...w, data: { ...w.data, list_id: id } });
+      break;
+    }
+    case 'cw-pick-template': {
+      const id = parseInt(el.dataset.id, 10);
+      const w = screenState.campaign_wizard;
+      render('campaign_wizard', { ...w, data: { ...w.data, template_id: id } });
+      break;
+    }
+    case 'cw-toggle-acc': {
+      const id = parseInt(el.dataset.id, 10);
+      const w = screenState.campaign_wizard;
+      const ids = new Set(w.data.account_ids || []);
+      ids.has(id) ? ids.delete(id) : ids.add(id);
+      render('campaign_wizard', { ...w, data: { ...w.data, account_ids: Array.from(ids) } });
+      break;
+    }
+    case 'cw-next': {
+      const from = parseInt(el.dataset.from, 10);
+      const w = screenState.campaign_wizard;
+      // Сохраняем имя из формы при переходе с шага 1
+      let data = w.data;
+      if (from === 1) {
+        const nm = document.getElementById('cw-name')?.value.trim();
+        data = { ...data, name: nm || data.name };
+        if (!data.list_id) { toast('Выберите список лидов'); return; }
+      }
+      if (from === 2 && !data.template_id) { toast('Выберите шаблон'); return; }
+      if (from === 3 && !(data.account_ids || []).length) { toast('Выберите хотя бы один аккаунт'); return; }
+      render('campaign_wizard', { ...w, step: from + 1, data });
+      break;
+    }
+    case 'cw-back': {
+      const from = parseInt(el.dataset.from, 10);
+      render('campaign_wizard', { ...screenState.campaign_wizard, step: from - 1 });
+      break;
+    }
+    case 'cw-create-and-start':
+    case 'cw-create-only': {
+      const w = screenState.campaign_wizard;
+      const start = action === 'cw-create-and-start';
+      try {
+        const c = await API.campaigns.create({
+          name: w.data.name, list_id: w.data.list_id,
+          template_id: w.data.template_id, account_ids: w.data.account_ids,
+        });
+        if (start) await API.campaigns.control(c.id, 'start');
+        toast(start ? '🚀 Кампания запущена' : '💾 Сохранена как draft');
+        loadCampaigns();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'campaign-control': {
+      const id = parseInt(el.dataset.id, 10);
+      const act = el.dataset.act;
+      try { await API.campaigns.control(id, act); loadCampaigns(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // Parser / Search (real backend)
+    case 'run-parser-real': {
+      const data = {
+        account_id:     parseInt(document.getElementById('parser-acc').value, 10),
+        target:         document.getElementById('parser-target').value.trim(),
+        list_name:      document.getElementById('parser-listname').value.trim() || 'Парсер',
+        messages_limit: parseInt(document.getElementById('parser-limit').value, 10) || 5000,
+      };
+      if (!data.target) { toast('Укажите чат'); return; }
+      const out = document.getElementById('parser-result');
+      out.innerHTML = '<div class="card">⏳ Парсю чат… (30-60 сек)</div>';
+      try {
+        const r = await API.tools.parse(data);
+        out.innerHTML = `<div class="card">✅ Найдено пользователей: ${r.found_users}<br>Список #${r.list_id} создан.</div>`;
+        setTimeout(() => loadLists(), 1000);
+      } catch (e) { out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}</div>`; }
+      break;
+    }
+    case 'run-search-real': {
+      const data = {
+        account_id: parseInt(document.getElementById('search-acc').value, 10),
+        keywords:   document.getElementById('search-keywords').value.split(',').map(s=>s.trim()).filter(Boolean),
+        chats:      document.getElementById('search-chats').value.split('\n').map(s=>s.trim()).filter(Boolean),
+        list_name:  document.getElementById('search-listname').value.trim() || 'Поиск',
+      };
+      if (!data.keywords.length) { toast('Укажите ключевые слова'); return; }
+      if (!data.chats.length)    { toast('Укажите хотя бы один чат'); return; }
+      const out = document.getElementById('search-result');
+      out.innerHTML = '<div class="card">⏳ Ищу по чатам… (зависит от объёма)</div>';
+      try {
+        const r = await API.tools.search(data);
+        out.innerHTML = `<div class="card">✅ Совпадений: ${r.matched_messages}, уникальных авторов: ${r.matched_users}<br>Список #${r.list_id} создан.</div>`;
+        setTimeout(() => loadLists(), 1000);
+      } catch (e) { out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}</div>`; }
+      break;
+    }
+
     case 'todo': toast('TODO'); break;
     default: console.log('action:', action);
   }
@@ -864,8 +1216,15 @@ document.addEventListener('click', (e) => {
       render('list_detail', { filter: stage.dataset.listFilter });
       return;
     }
-    render('pipeline', { stage: stage.dataset.stage });
-    return;
+    if (stage.dataset.mdStage !== undefined) {
+      // Toggle Monday import stage chip
+      stage.classList.toggle('active');
+      return;
+    }
+    if (stage.dataset.stage !== undefined) {
+      render('pipeline', { stage: stage.dataset.stage });
+      return;
+    }
   }
   const act = e.target.closest('[data-action]')?.dataset.action;
   if (act) handleAction(act, e.target.closest('[data-action]'));

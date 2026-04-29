@@ -74,6 +74,16 @@ const API = {
     batch:     (data)         => API.req('POST',   '/api/ai/generate_batch', data),
   },
 
+  monday: {
+    health:    ()             => API.req('GET',    '/api/monday/health'),
+    importBoard: (data)       => API.req('POST',   '/api/monday/import_board', data),
+  },
+
+  tools: {
+    parse:     (data)         => API.req('POST',   '/api/tools/parse', data),
+    search:    (data)         => API.req('POST',   '/api/tools/search', data),
+  },
+
   health: () => API.req('GET', '/api/health'),
 };
 
