@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BitOK CRM</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">B</div>
+      <div class="brand-text">
+        <div class="brand-name">BitOK CRM</div>
+        <div class="brand-sub" id="user-handle">—</div>
+      </div>
+    </div>
+    <button class="icon-btn" id="settings-btn" title="Настройки">⚙</button>
+  </header>
+
+  <main id="screen-root">
+    <!-- Экраны рендерятся сюда -->
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab" data-screen="dashboard">
+      <span class="tab-ico">▦</span>
+      <span class="tab-lbl">Главная</span>
+    </button>
+    <button class="tab" data-screen="pipeline">
+      <span class="tab-ico">≡</span>
+      <span class="tab-lbl">Сделки</span>
+    </button>
+    <button class="tab" data-screen="outreach">
+      <span class="tab-ico">↗</span>
+      <span class="tab-lbl">Аутрич</span>
+    </button>
+    <button class="tab" data-screen="contacts">
+      <span class="tab-ico">☺</span>
+      <span class="tab-lbl">Контакты</span>
+    </button>
+    <button class="tab" data-screen="more">
+      <span class="tab-ico">⋯</span>
+      <span class="tab-lbl">Ещё</span>
+    </button>
+  </nav>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
