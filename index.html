@@ -17,37 +17,31 @@
         <div class="brand-sub" id="user-handle">—</div>
       </div>
     </div>
-    <button class="icon-btn" id="settings-btn" title="Настройки">⚙</button>
+    <button class="icon-btn" id="settings-btn" title="Настройки бэкенда">⚙</button>
   </header>
 
-  <main id="screen-root">
-    <!-- Экраны рендерятся сюда -->
-  </main>
+  <main id="screen-root"></main>
 
   <nav class="tabbar">
     <button class="tab" data-screen="dashboard">
-      <span class="tab-ico">▦</span>
-      <span class="tab-lbl">Главная</span>
+      <span class="tab-ico">▦</span><span class="tab-lbl">Главная</span>
     </button>
     <button class="tab" data-screen="pipeline">
-      <span class="tab-ico">≡</span>
-      <span class="tab-lbl">Сделки</span>
+      <span class="tab-ico">≡</span><span class="tab-lbl">Сделки</span>
     </button>
     <button class="tab" data-screen="outreach">
-      <span class="tab-ico">↗</span>
-      <span class="tab-lbl">Аутрич</span>
+      <span class="tab-ico">↗</span><span class="tab-lbl">Аутрич</span>
     </button>
-    <button class="tab" data-screen="contacts">
-      <span class="tab-ico">☺</span>
-      <span class="tab-lbl">Контакты</span>
+    <button class="tab" data-screen="inbox">
+      <span class="tab-ico">✉</span><span class="tab-lbl">Inbox</span>
     </button>
     <button class="tab" data-screen="more">
-      <span class="tab-ico">⋯</span>
-      <span class="tab-lbl">Ещё</span>
+      <span class="tab-ico">⋯</span><span class="tab-lbl">Ещё</span>
     </button>
   </nav>
 </div>
 
+<script src="api.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
