@@ -1,5 +1,5 @@
 // API клиент для бэкенда BitOK CRM
-const DEFAULT_API_BASE = 'https://profession-pipe-cigarettes-thick.trycloudflare.com';
+const DEFAULT_API_BASE = 'https://tahoe-campaigns-carlo-amend.trycloudflare.com';
 
 const API = {
   base: () => localStorage.getItem('api_base') || DEFAULT_API_BASE,
