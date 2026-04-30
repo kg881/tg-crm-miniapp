@@ -27,7 +27,10 @@ const openTgUser = (uname) => {
 // ===== State =====
 let currentScreen = 'dashboard';
 let screenState = {};
-let IS_ADMIN = false;   // выставляется при загрузке через API.me()
+let IS_ADMIN = false;
+let _poll = null;
+function stopPoll() { if (_poll) { clearInterval(_poll); _poll = null; } }
+function startPoll(fn, ms) { stopPoll(); _poll = setInterval(fn, ms); }
 
 // ===== Mock-данные дашборда =====
 const MOCK = {
@@ -153,17 +156,21 @@ const screens = {
           </div>
         ` : accs.map(a => {
           const st = stats[a.id] || {};
+          const isReauth = a.status === 'needs_reauth';
+          const dotColor = a.status === 'active' ? 'green' : isReauth ? 'orange' : 'orange';
+          const badgeClass = a.status === 'active' ? 'cold' : isReauth ? 'hot' : 'warm';
+          const badgeText  = isReauth ? '⚠ переавтор' : a.status;
           return `
-          <div class="card" data-action="open-account" data-id="${a.id}">
+          <div class="card" data-action="open-account" data-id="${a.id}" ${isReauth?'style="border-left:3px solid #ef4444"':''}>
             <div class="card-row">
               <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0">
-                <div class="avatar ${a.status === 'active' ? 'green' : 'orange'}">${initials(a.first_name || a.phone)}</div>
+                <div class="avatar ${dotColor}">${initials(a.first_name || a.phone)}</div>
                 <div class="lead-body">
                   <div class="lead-name">${escape(a.first_name || a.phone)}${a.username ? ` <span style="color:var(--text-muted);font-weight:400">@${escape(a.username)}</span>` : ''}</div>
                   <div class="lead-status">${escape(a.phone)}${a.proxy ? ' · proxy ✓' : ''}</div>
                 </div>
               </div>
-              <span class="lead-score ${a.status === 'active' ? 'cold' : 'warm'}">${a.status}</span>
+              <span class="lead-score ${badgeClass}">${badgeText}</span>
             </div>
             <div style="display:flex;gap:14px;font-size:12px;color:var(--text-muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
               <span>Сегодня: <b style="color:var(--text)">${a.sent_today}/${a.daily_limit}</b></span>
@@ -208,10 +215,16 @@ const screens = {
           <input id="ad-proxy" placeholder="socks5://..." value="${escape(a.proxy || '')}"
                  style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
         </div>
+        ${a.status === 'needs_reauth' ? `
+          <div class="card" style="background:#fee2e2;color:#991b1b;font-size:13px;margin-bottom:8px">
+            ⚠️ Сессия инвалидирована Telegram. ${a.last_error ? escape(a.last_error) : ''}
+          </div>
+          <button class="btn full" style="margin-top:0;background:#ef4444" data-action="account-reauth" data-id="${a.id}" data-phone="${escape(a.phone)}" data-proxy="${escape(a.proxy || '')}">🔄 Реавторизовать</button>
+        ` : ''}
         <button class="btn full" style="margin-top:8px" data-action="account-save" data-id="${a.id}">Сохранить</button>
         ${a.status === 'active'
           ? `<button class="btn full secondary" style="margin-top:8px" data-action="account-toggle" data-id="${a.id}" data-to="paused">⏸ Поставить на паузу</button>`
-          : `<button class="btn full secondary" style="margin-top:8px" data-action="account-toggle" data-id="${a.id}" data-to="active">▶ Активировать</button>`
+          : a.status !== 'needs_reauth' ? `<button class="btn full secondary" style="margin-top:8px" data-action="account-toggle" data-id="${a.id}" data-to="active">▶ Активировать</button>` : ''
         }
         <button class="btn full secondary" style="margin-top:8px;color:#ef4444" data-action="account-delete" data-id="${a.id}">Удалить из CRM</button>
       </div>`;
@@ -684,6 +697,7 @@ const screens = {
   // ---------- INBOX ----------
   inbox: (st) => {
     const convs = st?.conversations ?? null;
+    const filter = st?.filter || 'all';
     if (convs === null) return `
       <div class="screen"><div class="head-row"><h2>Inbox</h2></div>
       <div class="empty"><div class="empty-ico">…</div><div class="empty-title">Загружаю</div></div></div>`;
@@ -693,19 +707,46 @@ const screens = {
         <div class="empty-title">Пока никто не ответил</div>
         <div>Запустите кампанию — ответы со всех ваших аккаунтов будут падать сюда.</div>
       </div></div>`;
+
+    // Считаем по статусам
+    const counts = { unread: 0 };
+    convs.forEach(c => {
+      if (c.unread) counts.unread++;
+      const s = c.lead_status || 'Без статуса';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+
+    const filtered = convs.filter(c => {
+      if (filter === 'all') return true;
+      if (filter === 'unread') return c.unread;
+      return (c.lead_status || 'Без статуса') === filter;
+    });
+
+    const statusOrder = ['Trial Activated','Testnet','Objection handling','Initial Contact','Winback','New','Без статуса'];
+    const presentStatuses = statusOrder.filter(s => counts[s]);
+
     return `
       <div class="screen">
         <div class="head-row"><h2>Inbox · ${convs.length}</h2></div>
-        ${convs.map(c => `
-          <div class="lead" data-action="open-conv" data-id="${c.id}">
-            <div class="avatar ${c.unread ? 'orange' : 'blue'}">${initials(c.lead_name || c.lead_username || '?')}</div>
-            <div class="lead-body">
-              <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}</div>
-              <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)}</div>
+        <div class="stage-strip">
+          <div class="stage-chip ${filter==='all'?'active':''}" data-inbox-filter="all">Все · ${convs.length}</div>
+          ${counts.unread ? `<div class="stage-chip ${filter==='unread'?'active':''}" data-inbox-filter="unread">● Непрочитанные · ${counts.unread}</div>` : ''}
+          ${presentStatuses.map(s => `
+            <div class="stage-chip ${filter===s?'active':''}" data-inbox-filter="${escape(s)}">${escape(s)} · ${counts[s]}</div>
+          `).join('')}
+        </div>
+        ${filtered.length === 0 ? '<div class="empty"><div class="empty-title">Нет диалогов в этой категории</div></div>' :
+          filtered.map(c => `
+            <div class="lead" data-action="open-conv" data-id="${c.id}">
+              <div class="avatar ${c.unread ? 'orange' : 'blue'}">${initials(c.lead_name || c.lead_username || '?')}</div>
+              <div class="lead-body">
+                <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}</div>
+                <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)}</div>
+              </div>
+              <span class="lead-score ${c.lead_status==='Trial Activated'?'hot':c.lead_status==='Testnet'?'warm':'cold'}">${escape(c.lead_status || c.account_phone)}</span>
             </div>
-            <span class="lead-score cold">${escape(c.account_phone)}</span>
-          </div>
-        `).join('')}
+          `).join('')
+        }
       </div>`;
   },
 
@@ -1058,14 +1099,17 @@ async function loadSearchTool() {
   catch { render('tool_search', { accounts: [] }); }
 }
 
-async function loadInbox() {
-  render('inbox', { conversations: null });
+async function loadInbox(silent=false) {
+  if (!silent) render('inbox', { conversations: null });
   try {
     const conversations = await API.inbox.list();
-    render('inbox', { conversations });
+    const filter = screenState.inbox?.filter || 'all';
+    render('inbox', { conversations, filter });
   } catch (e) {
-    render('inbox', { conversations: [] });
-    toast(`Не удалось загрузить inbox: ${e.message}`);
+    if (!silent) {
+      render('inbox', { conversations: [] });
+      toast(`Не удалось загрузить inbox: ${e.message}`);
+    }
   }
 }
 
@@ -1178,6 +1222,15 @@ async function handleAction(action, el) {
       const id = parseInt(el.dataset.id, 10);
       const yes = await confirm_('Удалить аккаунт из CRM? (файл сессии сохранится)');
       if (yes) { try { await API.accounts.remove(id); loadAccounts(); } catch (e) { toast(`Ошибка: ${e.message}`); } }
+      break;
+    }
+    case 'account-reauth': {
+      // Открываем стандартный flow добавления с префиллом — backend сам грохнет старую запись
+      render('add_account', {
+        step: 'phone',
+        phone: el.dataset.phone || '',
+        proxy: el.dataset.proxy || '',
+      });
       break;
     }
 
@@ -1531,9 +1584,12 @@ document.addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');
   if (tab) {
     const name = tab.dataset.screen;
-    if (name === 'inbox')         loadInbox();
-    else if (name === 'outreach') { render('outreach'); loadOutreachSummaries(); }
-    else                          render(name);
+    stopPoll();
+    if (name === 'inbox') {
+      loadInbox();
+      startPoll(() => loadInbox(true), 15000);
+    } else if (name === 'outreach') { render('outreach'); loadOutreachSummaries(); }
+    else                            render(name);
     return;
   }
   const stage = e.target.closest('.stage-chip');
@@ -1552,6 +1608,10 @@ document.addEventListener('click', (e) => {
     }
     if (stage.dataset.aiFilter !== undefined) {
       loadAdminIdeas(stage.dataset.aiFilter);
+      return;
+    }
+    if (stage.dataset.inboxFilter !== undefined) {
+      render('inbox', { ...screenState.inbox, filter: stage.dataset.inboxFilter });
       return;
     }
     if (stage.dataset.stage !== undefined) {
