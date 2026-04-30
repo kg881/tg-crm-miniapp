@@ -98,6 +98,7 @@ const API = {
     mine:      ()             => API.req('GET',    '/api/ideas/mine'),
     adminList: (status)       => API.req('GET',    `/api/admin/ideas${status?`?status=${status}`:''}`),
     adminUpdate: (id, data)   => API.req('PATCH',  `/api/admin/ideas/${id}`, data),
+    adminDelete: (id)         => API.req('DELETE', `/api/admin/ideas/${id}`),
   },
 
   briefing: {

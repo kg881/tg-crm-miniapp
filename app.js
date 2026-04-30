@@ -902,7 +902,8 @@ const screens = {
                     ${statusLabel[s]}
                   </button>
                 `).join('')}
-                <button class="stage-chip" data-action="idea-add-note" data-id="${i.id}" style="font-size:11px;padding:6px 10px;margin-left:auto">📝 Заметка</button>
+                <button class="stage-chip" data-action="idea-add-note" data-id="${i.id}" style="font-size:11px;padding:6px 10px;margin-left:auto">📝</button>
+                <button class="stage-chip" data-action="idea-delete" data-id="${i.id}" style="font-size:11px;padding:6px 10px;color:#ef4444">🗑</button>
               </div>
             </div>
           `).join('')
@@ -1448,6 +1449,16 @@ async function handleAction(action, el) {
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
+    case 'idea-delete': {
+      const id = parseInt(el.dataset.id, 10);
+      const yes = await confirm_('Удалить идею навсегда?');
+      if (!yes) return;
+      try {
+        await API.ideas.adminDelete(id);
+        loadAdminIdeas(screenState.admin_ideas?.filter || 'all');
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
 
     // Monday import
     case 'monday-import': render('monday_import', { selected_stages: ['Trial Activated','Objection handling','Initial Contact'] }); break;
@@ -1657,7 +1668,11 @@ if (tg) tg.BackButton.onClick(() => render('dashboard'));
 $('#user-handle').textContent = ME.username ? '@' + ME.username : 'BitOK Workspace';
 
 // Узнаём, админ ли (для показа пункта «Админка · идеи» в Ещё)
-API.me().then(r => { IS_ADMIN = !!r.is_admin; }).catch(() => {});
+API.me().then(r => {
+  IS_ADMIN = !!r.is_admin;
+  // Если уже на экране More — перерендерим, чтобы появилась плашка админки
+  if (currentScreen === 'more') render('more');
+}).catch(() => {});
 
 // Initial render
 render('dashboard');
