@@ -87,6 +87,19 @@ const API = {
   },
 
   health: () => API.req('GET', '/api/health'),
+
+  me: () => API.req('GET', '/api/me'),
+
+  ideas: {
+    submit:    (text)         => API.req('POST',   '/api/ideas', { text }),
+    mine:      ()             => API.req('GET',    '/api/ideas/mine'),
+    adminList: (status)       => API.req('GET',    `/api/admin/ideas${status?`?status=${status}`:''}`),
+    adminUpdate: (id, data)   => API.req('PATCH',  `/api/admin/ideas/${id}`, data),
+  },
+
+  briefing: {
+    run: () => API.req('POST', '/api/briefing/run'),
+  },
 };
 
 window.API = API;

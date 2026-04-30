@@ -27,16 +27,18 @@ const openTgUser = (uname) => {
 // ===== State =====
 let currentScreen = 'dashboard';
 let screenState = {};
+let IS_ADMIN = false;   // выставляется при загрузке через API.me()
 
 // ===== Mock-данные дашборда =====
 const MOCK = {
   stats: { leads_today: 36, hot: 6, sent_today: 142, reply_rate: 18 },
+  // Hot leads — ТОЛЬКО лиды на trial (по запросу: исключить paid, показывать trial-стейджы).
   hot_leads: [
-    { name: 'CryptoGex', stage: 'Trial Activated', score: 95, color: 'orange' },
-    { name: 'MoneyPort', stage: 'Objection handling', score: 80, color: 'green' },
+    { name: 'CryptoGex',     stage: 'Trial Activated', score: 95, color: 'orange' },
     { name: 'Биржа Масспей', stage: 'Trial Activated', score: 70, color: 'blue' },
-    { name: 'ivendpay.com', stage: 'Trial Activated', score: 70, color: 'purple' },
-    { name: 'Bitteam', stage: 'Trial Activated', score: 75, color: 'orange' },
+    { name: 'ivendpay.com',  stage: 'Trial Activated', score: 70, color: 'purple' },
+    { name: 'Bitteam',       stage: 'Trial Activated', score: 75, color: 'orange' },
+    { name: 'safexchange.pr',stage: 'Trial Activated', score: 70, color: 'green' },
   ],
   pipeline_stages: [
     { id: 'all', label: 'Все', count: 36 },
@@ -730,6 +732,109 @@ const screens = {
       </div>`;
   },
 
+  // ---------- IDEA SUBMIT ----------
+  idea_submit: () => `
+    <div class="screen">
+      <div class="head-row"><h2 style="font-size:18px">Оставить идею</h2></div>
+      <div class="card">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">
+          Что улучшить, добавить или починить? Идеи попадают в админку — каждая будет рассмотрена.
+        </div>
+        <textarea id="idea-text" rows="8" placeholder="Например: добавить экспорт диалогов в CSV..."
+                  style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
+      </div>
+      <button class="btn full" style="margin-top:8px" data-action="idea-send">Отправить идею</button>
+      <button class="btn full secondary" style="margin-top:8px" data-action="goto-my-ideas">Мои идеи</button>
+    </div>`,
+
+  // ---------- MY IDEAS ----------
+  my_ideas: (st) => {
+    const ideas = st?.ideas ?? [];
+    const statusLabel = { new: 'Новая', in_progress: 'В работе', done: 'Сделано', rejected: 'Отклонена' };
+    const statusColor = { new: 'cold', in_progress: 'warm', done: 'cold', rejected: 'hot' };
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Мои идеи</h2><button class="add-btn" data-action="goto-idea-submit">+</button></div>
+        ${ideas.length === 0 ? `
+          <div class="empty">
+            <div class="empty-ico">💡</div>
+            <div class="empty-title">Идей пока нет</div>
+            <button class="btn" style="margin-top:16px" data-action="goto-idea-submit">Оставить первую</button>
+          </div>
+        ` : ideas.map(i => `
+          <div class="card">
+            <div class="card-row">
+              <div style="font-size:12px;color:var(--text-muted)">${new Date(i.created_at).toISOString().slice(0,10)}</div>
+              <span class="lead-score ${statusColor[i.status]||'cold'}">${statusLabel[i.status] || i.status}</span>
+            </div>
+            <div style="font-size:14px;margin-top:8px;white-space:pre-wrap;word-break:break-word">${escape(i.text)}</div>
+            ${i.admin_note ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">💬 ${escape(i.admin_note)}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>`;
+  },
+
+  // ---------- ADMIN: IDEAS ----------
+  admin_ideas: (st) => {
+    const ideas = st?.ideas ?? [];
+    const filter = st?.filter || 'all';
+    const counts = {};
+    ideas.forEach(i => counts[i.status] = (counts[i.status] || 0) + 1);
+    const filtered = filter === 'all' ? ideas : ideas.filter(i => i.status === filter);
+    const statusLabel = { new: 'Новые', in_progress: 'В работе', done: 'Сделано', rejected: 'Отклонены' };
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">🛠 Идеи пользователей</h2></div>
+        <div class="stage-strip">
+          <div class="stage-chip ${filter==='all'?'active':''}" data-ai-filter="all">Все · ${ideas.length}</div>
+          ${['new','in_progress','done','rejected'].map(s => counts[s] ? `
+            <div class="stage-chip ${filter===s?'active':''}" data-ai-filter="${s}">${statusLabel[s]} · ${counts[s]}</div>
+          ` : '').join('')}
+        </div>
+        ${filtered.length === 0 ? '<div class="empty"><div class="empty-title">Нет идей в этой категории</div></div>' :
+          filtered.map(i => `
+            <div class="card">
+              <div class="card-row">
+                <div style="font-size:13px"><b>${escape(i.author_name || '?')}</b> ${i.author_username ? `<span style="color:var(--accent)">@${escape(i.author_username)}</span>` : ''}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${new Date(i.created_at).toISOString().slice(0,10)}</div>
+              </div>
+              <div style="font-size:14px;margin-top:8px;white-space:pre-wrap;word-break:break-word">${escape(i.text)}</div>
+              ${i.admin_note ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px;font-style:italic">📝 ${escape(i.admin_note)}</div>` : ''}
+              <div style="display:flex;gap:4px;margin-top:10px;flex-wrap:wrap">
+                ${['new','in_progress','done','rejected'].map(s => `
+                  <button class="stage-chip ${i.status===s?'active':''}" data-action="idea-set-status" data-id="${i.id}" data-status="${s}" style="font-size:11px;padding:6px 10px">
+                    ${statusLabel[s]}
+                  </button>
+                `).join('')}
+                <button class="stage-chip" data-action="idea-add-note" data-id="${i.id}" style="font-size:11px;padding:6px 10px;margin-left:auto">📝 Заметка</button>
+              </div>
+            </div>
+          `).join('')
+        }
+      </div>`;
+  },
+
+  // ---------- CSV UPLOAD (экран вместо prompt) ----------
+  csv_upload: (st) => `
+    <div class="screen">
+      <div class="head-row"><h2 style="font-size:18px">Загрузить CSV</h2></div>
+      <div class="card">
+        <label style="font-size:12px;color:var(--text-muted)">Название списка</label>
+        <input id="cu-name" value="${escape(st?.name || 'Список ' + new Date().toISOString().slice(0,10))}"
+               style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:15px;margin-top:4px">
+        <label style="font-size:12px;color:var(--text-muted);margin-top:14px;display:block">CSV-файл</label>
+        <input id="cu-file" type="file" accept=".csv,text/csv,text/plain"
+               style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:10px">
+          Формат: <code>tg_username, company, first_message, status</code><br>
+          Разделитель: запятая, точка с запятой или таб (определится автоматически).
+        </div>
+      </div>
+      <button class="btn full" style="margin-top:8px" data-action="csv-upload-go">Загрузить</button>
+      <div id="cu-result" style="margin-top:8px"></div>
+    </div>
+  `,
+
   // ---------- TOOLS PLACEHOLDERS ----------
   tool_parser: (st) => {
     const accs = st?.accounts ?? [];
@@ -802,13 +907,18 @@ const screens = {
       <div class="list-item" data-action="goto-templates">
         <div class="list-ico">✦</div><div class="list-text"><div class="list-title">AI-ассистент</div><div class="list-sub">Шаблоны и генератор сообщений</div></div><div class="list-arrow">›</div>
       </div>
-      <div class="section-title">Система</div>
-      <div class="list-item" data-action="api-config">
-        <div class="list-ico">⌬</div><div class="list-text"><div class="list-title">Адрес бэкенда</div><div class="list-sub" id="api-url-display">${escape(API.base())}</div></div><div class="list-arrow">›</div>
+      <div class="section-title">Сообщество</div>
+      <div class="list-item" data-action="goto-idea-submit">
+        <div class="list-ico">💡</div><div class="list-text"><div class="list-title">Оставить идею</div><div class="list-sub">Что улучшить в приложении</div></div><div class="list-arrow">›</div>
       </div>
-      <div class="list-item" data-action="api-test">
-        <div class="list-ico">♥</div><div class="list-text"><div class="list-title">Проверка связи</div><div class="list-sub">Health-check бэкенда</div></div><div class="list-arrow">›</div>
+      <div class="list-item" data-action="goto-my-ideas">
+        <div class="list-ico">⊟</div><div class="list-text"><div class="list-title">Мои идеи</div><div class="list-sub">Статусы предложенных идей</div></div><div class="list-arrow">›</div>
       </div>
+      ${IS_ADMIN ? `
+      <div class="list-item" data-action="goto-admin-ideas" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">
+        <div class="list-ico">🛠</div><div class="list-text"><div class="list-title">Админка · идеи</div><div class="list-sub">Управление предложениями пользователей</div></div><div class="list-arrow">›</div>
+      </div>
+      ` : ''}
       <div class="list-item" data-action="contact-support">
         <div class="list-ico">?</div><div class="list-text"><div class="list-title">Поддержка</div><div class="list-sub">${escape(SUPPORT)}</div></div><div class="list-arrow">›</div>
       </div>
@@ -937,22 +1047,15 @@ async function openConv(cid) {
   } catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
-// ===== CSV upload (использует hidden file input) =====
-function triggerCsvUpload() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.csv,text/csv';
-  input.onchange = async () => {
-    const f = input.files[0]; if (!f) return;
-    const name = prompt_('Название списка:', f.name.replace('.csv', ''));
-    if (!name) return;
-    try {
-      await API.lists.upload(name, f);
-      toast('Список загружен');
-      loadLists();
-    } catch (e) { toast(`Ошибка: ${e.message}`); }
-  };
-  input.click();
+// ===== Loaders for new screens =====
+async function loadMyIdeas() {
+  try { render('my_ideas', { ideas: await API.ideas.mine() }); }
+  catch (e) { render('my_ideas', { ideas: [] }); toast(`Ошибка: ${e.message}`); }
+}
+
+async function loadAdminIdeas(filter='all') {
+  try { render('admin_ideas', { ideas: await API.ideas.adminList(), filter }); }
+  catch (e) { render('admin_ideas', { ideas: [], filter }); toast(`Ошибка: ${e.message}`); }
 }
 
 // ===== Action handler =====
@@ -960,7 +1063,11 @@ async function handleAction(action, el) {
   haptic();
   switch (action) {
     case 'open-lead':       toast(`Карточка лида: ${el.dataset.name}\n\n(скоро)`); break;
-    case 'run-briefing':    toast('Брифинг запущен — придёт сообщением через 30 сек.'); break;
+    case 'run-briefing':    {
+      try { await API.briefing.run(); toast('☀️ Брифинг отправлен в чат с ботом'); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
 
     // Outreach navigation
     case 'goto-accounts':   loadAccounts(); break;
@@ -1037,7 +1144,23 @@ async function handleAction(action, el) {
     }
 
     // Lists
-    case 'upload-csv':       triggerCsvUpload(); break;
+    case 'upload-csv':       render('csv_upload', {}); break;
+    case 'csv-upload-go': {
+      const name = document.getElementById('cu-name').value.trim();
+      const file = document.getElementById('cu-file').files[0];
+      const out = document.getElementById('cu-result');
+      if (!file) { out.innerHTML = '<div class="card" style="color:#ef4444">Выберите CSV-файл</div>'; return; }
+      if (!name) { out.innerHTML = '<div class="card" style="color:#ef4444">Укажите название</div>'; return; }
+      out.innerHTML = '<div class="card">⏳ Загружаю...</div>';
+      try {
+        const r = await API.lists.upload(name, file);
+        out.innerHTML = `<div class="card">✅ Импортировано: ${r.count} лидов в список «${escape(r.name)}»</div>`;
+        setTimeout(() => loadLists(), 1500);
+      } catch (e) {
+        out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}</div>`;
+      }
+      break;
+    }
     case 'open-list':        openList(parseInt(el.dataset.id, 10), el.querySelector('.lead-name')?.textContent); break;
     case 'add-lead-to-list': {
       const st = screenState.list_detail;
@@ -1172,24 +1295,43 @@ async function handleAction(action, el) {
       break;
     }
 
-    // System
-    case 'api-config': {
-      const cur = API.base();
-      const next = prompt_('Адрес бэкенда (https://...):', cur);
-      if (next) {
-        API.setBase(next);
-        const el = document.getElementById('api-url-display');
-        if (el) el.textContent = API.base();
-        toast('Адрес обновлён');
-      }
-      break;
-    }
-    case 'api-test': {
-      try { const r = await API.health(); toast(`OK: ${JSON.stringify(r)}`); }
-      catch (e) { toast(`Ошибка связи: ${e.message}\n\nАдрес: ${API.base()}`); }
-      break;
-    }
     case 'contact-support': openTgUser(SUPPORT); break;
+
+    // Ideas (любой пользователь)
+    case 'goto-idea-submit': render('idea_submit'); break;
+    case 'goto-my-ideas':    loadMyIdeas(); break;
+    case 'idea-send': {
+      const text = document.getElementById('idea-text').value.trim();
+      if (text.length < 5) { toast('Идея слишком короткая'); return; }
+      try {
+        await API.ideas.submit(text);
+        toast('💡 Спасибо! Идея отправлена');
+        loadMyIdeas();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // Admin: ideas
+    case 'goto-admin-ideas': loadAdminIdeas('all'); break;
+    case 'idea-set-status': {
+      const id = parseInt(el.dataset.id, 10);
+      const status = el.dataset.status;
+      try {
+        await API.ideas.adminUpdate(id, { status });
+        loadAdminIdeas(screenState.admin_ideas?.filter || 'all');
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'idea-add-note': {
+      const id = parseInt(el.dataset.id, 10);
+      const note = prompt_('Заметка к идее:', '');
+      if (note === null) return;
+      try {
+        await API.ideas.adminUpdate(id, { admin_note: note });
+        loadAdminIdeas(screenState.admin_ideas?.filter || 'all');
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
 
     // Monday import
     case 'monday-import': render('monday_import', { selected_stages: ['Trial Activated','Objection handling','Initial Contact'] }); break;
@@ -1369,6 +1511,10 @@ document.addEventListener('click', (e) => {
       render('campaign_detail', { ...screenState.campaign_detail, filter: stage.dataset.cdFilter });
       return;
     }
+    if (stage.dataset.aiFilter !== undefined) {
+      loadAdminIdeas(stage.dataset.aiFilter);
+      return;
+    }
     if (stage.dataset.stage !== undefined) {
       render('pipeline', { stage: stage.dataset.stage });
       return;
@@ -1386,6 +1532,9 @@ document.addEventListener('keydown', (e) => {
 
 if (tg) tg.BackButton.onClick(() => render('dashboard'));
 $('#user-handle').textContent = ME.username ? '@' + ME.username : 'BitOK Workspace';
+
+// Узнаём, админ ли (для показа пункта «Админка · идеи» в Ещё)
+API.me().then(r => { IS_ADMIN = !!r.is_admin; }).catch(() => {});
 
 // Initial render
 render('dashboard');
