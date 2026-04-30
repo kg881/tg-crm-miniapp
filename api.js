@@ -1,9 +1,12 @@
 // API клиент для бэкенда BitOK CRM
 const DEFAULT_API_BASE = 'https://tahoe-campaigns-carlo-amend.trycloudflare.com';
 
+// Чистим старый сохранённый URL — теперь всегда берём актуальный из этого файла
+try { localStorage.removeItem('api_base'); } catch {}
+
 const API = {
-  base: () => localStorage.getItem('api_base') || DEFAULT_API_BASE,
-  setBase(url) { localStorage.setItem('api_base', url.replace(/\/$/, '')); },
+  base: () => DEFAULT_API_BASE,
+  setBase(url) { /* deprecated — URL приходит только из api.js */ },
 
   async req(method, path, body = null) {
     const initData = window.Telegram?.WebApp?.initData || '';
