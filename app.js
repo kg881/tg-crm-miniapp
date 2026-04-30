@@ -342,6 +342,11 @@ const screens = {
         ` : `
           <button class="btn full secondary" style="margin-top:8px" data-action="monday-import">▣ Импорт из Monday</button>
         `}
+        <div class="card" style="margin-top:16px;background:linear-gradient(135deg,#dbeafe,#e0e7ff)">
+          <div style="font-size:13px;color:#1e3a8a">
+            💡 <b>Лайфхак:</b> перешлите любое сообщение боту <b>@crm_outreach_bot</b> — он добавит автора в выбранный список.
+          </div>
+        </div>
       </div>`;
   },
 
@@ -704,30 +709,56 @@ const screens = {
       </div>`;
   },
 
-  // ---------- CONVERSATION (с прикреплением файла) ----------
+  // ---------- CONVERSATION (TG-style) ----------
   conv: (st) => {
     const msgs = st?.messages ?? [];
+    const title = st?.title || 'Чат';
+    const subtitle = st?.subtitle || '';
+    // Группировка по датам для разделителей
+    let lastDate = '';
+    const dateLabel = (iso) => {
+      const d = new Date(iso); const t = new Date();
+      const y = new Date(t); y.setDate(t.getDate() - 1);
+      if (d.toDateString() === t.toDateString()) return 'Сегодня';
+      if (d.toDateString() === y.toDateString()) return 'Вчера';
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    };
+    const isMedia = (txt) => /^(🖼 Фото|🎥 Видео|🎤 Голосовое|📎 Документ|📍 Гео|📨 Медиа|\[(image|video|audio|application)\/)/i.test(txt);
+
     return `
-      <div class="screen" style="display:flex;flex-direction:column;height:100%">
-        <div class="head-row"><h2 style="font-size:18px">${escape(st?.title || 'Чат')}</h2></div>
-        <div id="msg-list" style="flex:1;overflow-y:auto;padding:8px 0">
-          ${msgs.map(m => `
-            <div style="display:flex;justify-content:${m.direction === 'out' ? 'flex-end' : 'flex-start'};margin-bottom:8px">
-              <div style="max-width:80%;padding:10px 14px;border-radius:14px;background:${m.direction === 'out' ? 'var(--accent)' : 'var(--bg-secondary)'};color:${m.direction === 'out' ? 'var(--accent-text)' : 'var(--text)'};font-size:14px;white-space:pre-wrap;word-break:break-word">
-                ${escape(m.text)}
-                <div style="font-size:10px;opacity:0.6;margin-top:4px">${fmtTime(m.sent_at)}</div>
-              </div>
-            </div>
-          `).join('')}
+      <div class="conv-screen">
+        <div class="conv-header">
+          <button class="icon-btn" data-action="conv-back" title="Назад" style="font-size:20px">‹</button>
+          <div class="avatar blue" style="width:36px;height:36px;font-size:14px">${initials(title)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')}</div>
+          </div>
         </div>
-        <div style="display:flex;gap:4px;padding:8px 0;align-items:center">
-          <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Прикрепить файл" style="font-size:22px">📎</button>
-          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка ответа" style="font-size:18px;color:var(--accent)">✨</button>
+        <div id="msg-list" class="conv-body">
+          ${msgs.map(m => {
+            const day = dateLabel(m.sent_at);
+            const showDate = day !== lastDate;
+            lastDate = day;
+            const out = m.direction === 'out';
+            const media = isMedia(m.text);
+            return (showDate ? `<div class="conv-date">${day}</div>` : '') + `
+              <div class="conv-row ${out ? 'out' : 'in'}">
+                <div class="conv-bubble ${out ? 'out' : 'in'} ${media ? 'media' : ''}">
+                  ${media ? `<div class="conv-media-ico">${escape(m.text)}</div>` : `<div class="conv-text">${escape(m.text)}</div>`}
+                  <div class="conv-time">${fmtTime(m.sent_at)}${out ? ' ✓' : ''}</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+        <div class="conv-input">
+          <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Файл" style="font-size:22px">📎</button>
+          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка" style="font-size:18px;color:var(--accent)">✨</button>
           <input type="file" id="attach-input" style="display:none"
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
-          <input id="reply-input" type="text" placeholder="Сообщение или подпись"
-                 style="flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:24px;background:var(--bg);color:var(--text);font-size:15px">
-          <button class="btn" data-action="send-reply" data-id="${st.conv_id}">→</button>
+          <input id="reply-input" type="text" placeholder="Сообщение"
+                 style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-size:15px">
+          <button class="btn" data-action="send-reply" data-id="${st.conv_id}" style="padding:10px 16px">→</button>
         </div>
       </div>`;
   },
@@ -1042,8 +1073,15 @@ async function openConv(cid) {
   try {
     const messages = await API.inbox.messages(cid);
     const conv = (screenState.inbox?.conversations || []).find(c => c.id === cid);
-    render('conv', { conv_id: cid, messages, title: conv?.lead_name || conv?.lead_username || `Чат #${cid}` });
-    setTimeout(() => { const ml = document.getElementById('msg-list'); if (ml) ml.scrollTop = ml.scrollHeight; }, 50);
+    render('conv', {
+      conv_id: cid, messages,
+      title: conv?.lead_name || conv?.lead_username || `Чат #${cid}`,
+      subtitle: conv?.account_phone ? `через ${conv.account_phone}` : '',
+    });
+    requestAnimationFrame(() => {
+      const ml = document.getElementById('msg-list');
+      if (ml) ml.scrollTop = ml.scrollHeight;
+    });
   } catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
@@ -1272,6 +1310,7 @@ async function handleAction(action, el) {
 
     // Inbox
     case 'open-conv': openConv(parseInt(el.dataset.id, 10)); break;
+    case 'conv-back': loadInbox(); break;
     case 'send-reply': {
       const text = document.getElementById('reply-input').value.trim();
       const cid = parseInt(el.dataset.id, 10);
