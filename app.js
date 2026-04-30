@@ -215,6 +215,35 @@ const screens = {
           <input id="ad-proxy" placeholder="socks5://..." value="${escape(a.proxy || '')}"
                  style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
         </div>
+
+        <div class="section-title">🔥 Warmup (анти-спам)</div>
+        <div class="card">
+          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+            <input id="ad-warmup" type="checkbox" ${a.warmup_enabled?'checked':''} style="width:20px;height:20px">
+            <div style="flex:1">
+              <div style="font-weight:500">Включить warmup</div>
+              <div style="font-size:12px;color:var(--text-muted)">Каждые 30 мин этот акк будет обмениваться короткими сообщениями с другими вашими warmup-аккаунтами. Telegram воспринимает это как живой юзер — снижает риск попасть в спам.</div>
+            </div>
+          </label>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            ⚠️ Нужно минимум 2 акка с включённым warmup — иначе общаться не с кем.
+          </div>
+        </div>
+
+        <div class="section-title">✨ Auto-reply (AI отвечает за вас)</div>
+        <div class="card">
+          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+            <input id="ad-autoreply" type="checkbox" ${a.auto_reply_enabled?'checked':''} style="width:20px;height:20px">
+            <div style="flex:1">
+              <div style="font-weight:500">Включить авто-ответы</div>
+              <div style="font-size:12px;color:var(--text-muted)">Когда лид пишет в этот акк, Claude через 8-25 секунд (как живой человек) сгенерит и отправит ответ.</div>
+            </div>
+          </label>
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Промпт для AI (правила ответа)</label>
+          <textarea id="ad-autoprompt" rows="6" placeholder="Ты sales BitOK..."
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(a.auto_reply_prompt || 'Ты sales BitOK (AML/KYT для крипто-бизнесов). Отвечай коротко, на ты, по делу. Если спрашивают про цену — предложи созвон 15 мин. Если возражения — отрабатывай мягко. Без эмодзи и воды.')}</textarea>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">⚠️ Нужен ANTHROPIC_API_KEY в .env</div>
+        </div>
         ${a.status === 'needs_reauth' ? `
           <div class="card" style="background:#fee2e2;color:#991b1b;font-size:13px;margin-bottom:8px">
             ⚠️ Сессия инвалидирована Telegram. ${a.last_error ? escape(a.last_error) : ''}
@@ -349,12 +378,7 @@ const screens = {
             <span class="lead-score cold">${l.count}</span>
           </div>
         `).join('')}
-        ${lists.length ? `
-          <button class="btn full" style="margin-top:12px" data-action="upload-csv">+ Загрузить CSV</button>
-          <button class="btn full secondary" style="margin-top:8px" data-action="monday-import">▣ Импорт из Monday</button>
-        ` : `
-          <button class="btn full secondary" style="margin-top:8px" data-action="monday-import">▣ Импорт из Monday</button>
-        `}
+        ${lists.length ? `<button class="btn full" style="margin-top:12px" data-action="upload-csv">+ Загрузить CSV</button>` : ''}
         <div class="card" style="margin-top:16px;background:linear-gradient(135deg,#dbeafe,#e0e7ff)">
           <div style="font-size:13px;color:#1e3a8a">
             💡 <b>Лайфхак:</b> перешлите любое сообщение боту <b>@crm_outreach_bot</b> — он добавит автора в выбранный список.
@@ -972,10 +996,7 @@ const screens = {
         <div class="list-ico">⚇</div>
         <div class="list-text"><div class="list-title">@${escape(ME.username || 'без юзернейма')}</div><div class="list-sub">Workspace: BitOK · Plan: Pro</div></div>
       </div>
-      <div class="section-title">Интеграции</div>
-      <div class="list-item" data-action="todo">
-        <div class="list-ico">▣</div><div class="list-text"><div class="list-title">Monday CRM</div><div class="list-sub">Подключено · Board 9027825117</div></div><div class="list-arrow">›</div>
-      </div>
+      <div class="section-title">AI</div>
       <div class="list-item" data-action="goto-templates">
         <div class="list-ico">✦</div><div class="list-text"><div class="list-title">AI-ассистент</div><div class="list-sub">Шаблоны и генератор сообщений</div></div><div class="list-arrow">›</div>
       </div>
@@ -1007,7 +1028,7 @@ function render(name, state = {}) {
     t.classList.toggle('active', t.dataset.screen === name);
   });
   if (tg) {
-    const isMain = ['dashboard','pipeline','outreach','inbox','more'].includes(name);
+    const isMain = ['dashboard','outreach','inbox','more'].includes(name);
     if (isMain) tg.BackButton.hide(); else tg.BackButton.show();
   }
 }
@@ -1204,10 +1225,13 @@ async function handleAction(action, el) {
     case 'account-save': {
       const id = parseInt(el.dataset.id, 10);
       const data = {
-        daily_limit: parseInt(document.getElementById('ad-limit').value, 10),
-        proxy: document.getElementById('ad-proxy').value.trim() || '',
+        daily_limit:        parseInt(document.getElementById('ad-limit').value, 10),
+        proxy:              document.getElementById('ad-proxy').value.trim() || '',
+        warmup_enabled:     document.getElementById('ad-warmup')?.checked || false,
+        auto_reply_enabled: document.getElementById('ad-autoreply')?.checked || false,
+        auto_reply_prompt:  document.getElementById('ad-autoprompt')?.value || '',
       };
-      try { await API.accounts.update(id, data); toast('Сохранено'); loadAccounts(); }
+      try { await API.accounts.update(id, data); toast('✅ Сохранено'); loadAccounts(); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
