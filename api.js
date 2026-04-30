@@ -104,7 +104,18 @@ const API = {
   briefing: {
     run: () => API.req('POST', '/api/briefing/run'),
   },
+
+  dashboard: {
+    get:    () => API.req('GET', '/api/dashboard'),
+    badges: () => API.req('GET', '/api/dashboard/badges'),
+  },
+
+  // URL аватарки (для <img src="...">)
+  avatarUrl: (tgId) => `${API.base()}/api/avatars/${tgId}`,
 };
+
+API.campaigns.clone    = (id) => API.req('POST', `/api/campaigns/${id}/clone`);
+API.campaigns.testSend = (data) => API.req('POST', '/api/campaigns/test_send', data);
 
 window.API = API;
 

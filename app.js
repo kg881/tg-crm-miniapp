@@ -13,6 +13,71 @@ const fmtTime = (iso) => {
   if (d.toDateString() === today.toDateString()) return d.toTimeString().slice(0,5);
   return d.toISOString().slice(5,10).replace('-','.');
 };
+
+// «вчера в 14:30», «5 мин назад», «12 апр»
+function prettyTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); const now = new Date();
+  const diffMs = now - d; const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return 'только что';
+  if (diffMin < 60) return `${diffMin} мин назад`;
+  const sameDay = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const hhmm = d.toTimeString().slice(0,5);
+  if (sameDay)     return `сегодня ${hhmm}`;
+  if (isYesterday) return `вчера ${hhmm}`;
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+// Стабильный цвет по hash имени (как в Telegram)
+const _palette = ['#e25555','#f5a623','#16a34a','#2563eb','#7c3aed','#06b6d4','#ec4899','#f59e0b'];
+function colorFor(name) {
+  if (!name) return _palette[0];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return _palette[Math.abs(h) % _palette.length];
+}
+
+// Аватарка: <img> с fallback на цветные инициалы
+function avatar(tgId, name, size = 40) {
+  const color = colorFor(name || String(tgId || '?'));
+  const ini = initials(name);
+  const fontSize = Math.round(size * 0.4);
+  const fallback = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:${fontSize}px;flex:0 0 ${size}px">${escape(ini)}</div>`;
+  if (!tgId) return fallback;
+  const url = API.avatarUrl(tgId);
+  return `<img src="${url}" alt="${escape(ini)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex:0 0 ${size}px;background:${color}" onerror="this.outerHTML='${fallback.replace(/'/g, "\\'")}'">`;
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`Скопировано: ${text}`);
+  } catch { prompt_('Скопируйте вручную:', text); }
+}
+
+// Search-debounce — переиспользуем для всех экранов
+let _searchTimer = null;
+function _renderListDetailSearch(value) {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => {
+    render('list_detail', { q: value });
+    // Возвращаем фокус на инпут
+    const inp = document.getElementById('ld-search');
+    if (inp) { inp.focus(); inp.setSelectionRange(value.length, value.length); }
+  }, 200);
+}
+function _renderInboxSearch(value) {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => {
+    render('inbox', { ...screenState.inbox, q: value });
+    const inp = document.getElementById('ib-search');
+    if (inp) { inp.focus(); inp.setSelectionRange(value.length, value.length); }
+  }, 200);
+}
+window.__ldSearch = _renderListDetailSearch;
+window.__ibSearch = _renderInboxSearch;
 const haptic = () => tg?.HapticFeedback?.impactOccurred?.('light');
 const toast = (msg) => tg?.showAlert?.(msg) || alert(msg);
 const confirm_ = (msg) => new Promise(r => tg?.showConfirm?.(msg, r) || r(window.confirm(msg)));
@@ -57,28 +122,66 @@ const scoreClass = (n) => n >= 70 ? 'hot' : n >= 40 ? 'warm' : 'cold';
 // ===== Screens =====
 const screens = {
 
-  // ---------- DASHBOARD ----------
-  dashboard: () => `
-    <div class="screen">
-      <div class="head-row"><h2>Привет, ${escape(ME.first_name)}!</h2></div>
-      <div class="stats-grid">
-        <div class="stat"><div class="stat-label">Лидов на сегодня</div><div class="stat-value">${MOCK.stats.leads_today}</div><div class="stat-trend">+4 за ночь</div></div>
-        <div class="stat"><div class="stat-label">Горячих (70+)</div><div class="stat-value">${MOCK.stats.hot}</div><div class="stat-trend">требуют действий</div></div>
-        <div class="stat"><div class="stat-label">Отправлено сегодня</div><div class="stat-value">${MOCK.stats.sent_today}</div><div class="stat-trend">из 200</div></div>
-        <div class="stat"><div class="stat-label">Reply rate</div><div class="stat-value">${MOCK.stats.reply_rate}%</div><div class="stat-trend">+2.4% за неделю</div></div>
-      </div>
-      <div class="section-title">Горячие лиды</div>
-      ${MOCK.hot_leads.map(l => `
-        <div class="lead" data-action="open-lead" data-name="${escape(l.name)}">
-          <div class="avatar ${l.color}">${initials(l.name)}</div>
-          <div class="lead-body"><div class="lead-name">${escape(l.name)}</div><div class="lead-status">${escape(l.stage)}</div></div>
-          <span class="lead-score ${scoreClass(l.score)}">${l.score}</span>
+  // ---------- DASHBOARD (live) ----------
+  dashboard: (st) => {
+    const d = st?.data;
+    if (!d) return `
+      <div class="screen">
+        <div class="head-row"><h2>Привет, ${escape(ME.first_name)}!</h2></div>
+        <div class="empty"><div class="empty-ico">…</div><div class="empty-title">Загружаю данные</div></div>
+      </div>`;
+    const trendSent = d.sent_yesterday ? (d.sent_today >= d.sent_yesterday ? '↑' : '↓') + ` vs вчера ${d.sent_yesterday}` : 'первый день';
+    const queueLine = d.queue
+      ? `${d.queue} в очереди${d.eta_days ? ` · ETA ~${d.eta_days} дн` : ''}`
+      : 'очередь пуста';
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Привет, ${escape(ME.first_name)}!</h2></div>
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Отправлено сегодня</div>
+            <div class="stat-value">${d.sent_today}</div>
+            <div class="stat-trend">${escape(trendSent)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Ответов сегодня</div>
+            <div class="stat-value">${d.replies_today}</div>
+            <div class="stat-trend">${d.unread} непрочитано</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Reply rate (7д)</div>
+            <div class="stat-value">${d.reply_rate}%</div>
+            <div class="stat-trend">${d.live_campaigns} live кампаний</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Аккаунты</div>
+            <div class="stat-value">${d.accounts_active}/${d.accounts_total}</div>
+            <div class="stat-trend">${d.remaining_today}/${d.daily_capacity} осталось</div>
+          </div>
         </div>
-      `).join('')}
-      <div class="section-title">Быстрые действия</div>
-      <button class="btn full" data-action="run-briefing">Утренний брифинг</button>
-    </div>
-  `,
+
+        <div class="card" style="margin-top:8px;${d.queue?'background:linear-gradient(135deg,#dbeafe,#e0e7ff)':''}">
+          <div style="font-size:13px;color:${d.queue?'#1e3a8a':'var(--text-muted)'}">
+            ⚡ <b>Sender:</b> ${escape(queueLine)}
+          </div>
+        </div>
+
+        <div class="section-title">🔥 Горячие лиды (Trial Activated)</div>
+        ${d.hot_leads.length === 0 ? `
+          <div class="empty" style="padding:24px"><div style="font-size:13px">Нет лидов в Trial. Импортируйте список или поменяйте статусы вручную.</div></div>
+        ` : d.hot_leads.map(l => `
+          <div class="lead" data-action="open-lead-tg" data-username="${escape(l.username || '')}">
+            ${avatar(l.tg_id, l.name)}
+            <div class="lead-body"><div class="lead-name">${escape(l.name)}</div><div class="lead-status">${l.username?'@'+escape(l.username):''} · ${escape(l.stage)}</div></div>
+            <span class="lead-score hot">trial</span>
+          </div>
+        `).join('')}
+
+        <div class="section-title">Быстрые действия</div>
+        <button class="btn full" data-action="run-briefing">☀️ Прислать брифинг в чат с ботом</button>
+      </div>
+    `;
+  },
 
   // ---------- PIPELINE ----------
   pipeline: (st) => {
@@ -460,7 +563,8 @@ const screens = {
                 `<button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="pause">⏸ Пауза</button>` :
                 `<button class="btn" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="start">▶ Старт</button>`
               }
-              <button class="btn secondary" style="flex:1;padding:8px" data-action="open-campaign" data-id="${c.id}">📊 Детали</button>
+              <button class="btn secondary" style="flex:1;padding:8px" data-action="open-campaign" data-id="${c.id}">📊</button>
+              <button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-clone" data-id="${c.id}" title="Клонировать">🔁</button>
               <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹</button>
             </div>
           </div>`;
@@ -557,6 +661,7 @@ const screens = {
             <div>⏱ Расчётно займёт: <b style="color:var(--text)">~${days} ${typeof days==='number' && days===1?'день':'дней'}</b></div>
           </div>
         </div>
+        <button class="btn full secondary" style="margin-top:8px" data-action="cw-test-send">🧪 Сначала тест себе</button>
         <button class="btn full" style="margin-top:8px" data-action="cw-create-and-start">Создать и запустить</button>
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-create-only">Создать как draft</button>
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-back" data-from="4">Назад</button>
@@ -564,11 +669,18 @@ const screens = {
     }
   },
 
-  // ---------- LIST DETAIL (с таблицей лидов и фильтром по статусу) ----------
+  // ---------- LIST DETAIL (с таблицей лидов и фильтром по статусу + поиском) ----------
   list_detail: (st) => {
     const leads = st?.leads ?? [];
     const filter = st?.filter || 'all';
-    const filtered = filter === 'all' ? leads : leads.filter(l => (l.status || 'New') === filter);
+    const q = (st?.q || '').toLowerCase().trim();
+    let filtered = filter === 'all' ? leads : leads.filter(l => (l.status || 'New') === filter);
+    if (q) filtered = filtered.filter(l => {
+      return (l.username || '').toLowerCase().includes(q)
+          || (l.full_name || '').toLowerCase().includes(q)
+          || (l.company || '').toLowerCase().includes(q)
+          || (l.first_message || '').toLowerCase().includes(q);
+    });
     const statusCounts = {};
     leads.forEach(l => { const s = l.status || 'New'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
     return `
@@ -584,6 +696,9 @@ const screens = {
           <div class="stat"><div class="stat-label">Ответов</div><div class="stat-value" style="font-size:18px">${leads.reduce((s,l)=>s+(l.replied||0),0)}</div></div>
         </div>
 
+        <div class="search-bar">
+          <input id="ld-search" type="search" placeholder="Поиск по имени, username, компании..." value="${escape(q)}" oninput="window.__ldSearch(this.value)">
+        </div>
         <div class="stage-strip">
           <div class="stage-chip ${filter==='all'?'active':''}" data-list-filter="all">Все · ${leads.length}</div>
           ${LEAD_STATUSES.map(s => statusCounts[s] ? `
@@ -749,9 +864,19 @@ const screens = {
     const statusOrder = ['Trial Activated','Testnet','Objection handling','Initial Contact','Winback','New','Без статуса'];
     const presentStatuses = statusOrder.filter(s => counts[s]);
 
+    const q = (st?.q || '').toLowerCase().trim();
+    let display = filtered;
+    if (q) display = display.filter(c => {
+      return (c.lead_name || '').toLowerCase().includes(q)
+          || (c.lead_username || '').toLowerCase().includes(q)
+          || (c.last_text || '').toLowerCase().includes(q);
+    });
     return `
       <div class="screen">
         <div class="head-row"><h2>Inbox · ${convs.length}</h2></div>
+        <div class="search-bar">
+          <input id="ib-search" type="search" placeholder="Поиск по имени, username, тексту..." value="${escape(q)}" oninput="window.__ibSearch(this.value)">
+        </div>
         <div class="stage-strip">
           <div class="stage-chip ${filter==='all'?'active':''}" data-inbox-filter="all">Все · ${convs.length}</div>
           ${counts.unread ? `<div class="stage-chip ${filter==='unread'?'active':''}" data-inbox-filter="unread">● Непрочитанные · ${counts.unread}</div>` : ''}
@@ -759,13 +884,13 @@ const screens = {
             <div class="stage-chip ${filter===s?'active':''}" data-inbox-filter="${escape(s)}">${escape(s)} · ${counts[s]}</div>
           `).join('')}
         </div>
-        ${filtered.length === 0 ? '<div class="empty"><div class="empty-title">Нет диалогов в этой категории</div></div>' :
-          filtered.map(c => `
+        ${display.length === 0 ? '<div class="empty"><div class="empty-title">Ничего не найдено</div></div>' :
+          display.map(c => `
             <div class="lead" data-action="open-conv" data-id="${c.id}">
-              <div class="avatar ${c.unread ? 'orange' : 'blue'}">${initials(c.lead_name || c.lead_username || '?')}</div>
+              ${avatar(c.lead_tg_id, c.lead_name || c.lead_username)}
               <div class="lead-body">
                 <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}</div>
-                <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)}</div>
+                <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)} · ${prettyTime(c.last_message_at)}</div>
               </div>
               <span class="lead-score ${c.lead_status==='Trial Activated'?'hot':c.lead_status==='Testnet'?'warm':'cold'}">${escape(c.lead_status || c.account_phone)}</span>
             </div>
@@ -1119,6 +1244,38 @@ async function loadParserTool() {
 async function loadSearchTool() {
   try { const accounts = await API.accounts.list(); render('tool_search', { accounts }); }
   catch { render('tool_search', { accounts: [] }); }
+}
+
+async function loadDashboard() {
+  try {
+    const data = await API.dashboard.get();
+    render('dashboard', { data });
+  } catch (e) {
+    render('dashboard', { data: null });
+    toast(`Не удалось загрузить дашборд: ${e.message}`);
+  }
+}
+
+async function refreshBadges() {
+  try {
+    const b = await API.dashboard.badges();
+    document.querySelectorAll('.tab').forEach(t => {
+      const screen = t.dataset.screen;
+      let count = 0;
+      if (screen === 'inbox')    count = b.inbox_unread;
+      if (screen === 'outreach') count = b.outreach_live;
+      let badge = t.querySelector('.tab-badge');
+      if (count > 0) {
+        if (!badge) {
+          badge = document.createElement('span'); badge.className = 'tab-badge';
+          t.appendChild(badge);
+        }
+        badge.textContent = count > 99 ? '99+' : count;
+      } else if (badge) {
+        badge.remove();
+      }
+    });
+  } catch {}
 }
 
 async function loadInbox(silent=false) {
@@ -1554,6 +1711,27 @@ async function handleAction(action, el) {
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
+    case 'campaign-clone': {
+      const id = parseInt(el.dataset.id, 10);
+      try { await API.campaigns.clone(id); toast('🔁 Клонировано как draft'); loadCampaigns(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'cw-test-send': {
+      const w = screenState.campaign_wizard;
+      if (!ME.username) { toast('У вас нет username — некуда слать тест. Поставьте username в TG.'); return; }
+      const accs = w.accounts.filter(a => (w.data.account_ids || []).includes(a.id));
+      if (!accs.length) { toast('Сначала выберите акк на шаге 3'); return; }
+      try {
+        const r = await API.campaigns.testSend({
+          template_id: w.data.template_id,
+          account_id:  accs[0].id,
+          target:      '@' + ME.username,
+        });
+        toast(`✅ Тест отправлен вам в личку:\n\n${r.rendered}`);
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
     case 'open-campaign': openCampaign(parseInt(el.dataset.id, 10)); break;
     case 'ai-suggest': {
       const cid = parseInt(el.dataset.id, 10);
@@ -1622,8 +1800,9 @@ document.addEventListener('click', (e) => {
     stopPoll();
     if (name === 'inbox') {
       loadInbox();
-      startPoll(() => loadInbox(true), 15000);
+      startPoll(() => { loadInbox(true); refreshBadges(); }, 15000);
     } else if (name === 'outreach') { render('outreach'); loadOutreachSummaries(); }
+    else if (name === 'dashboard') { loadDashboard(); startPoll(() => { loadDashboard(); refreshBadges(); }, 30000); }
     else                            render(name);
     return;
   }
@@ -1675,4 +1854,6 @@ API.me().then(r => {
 }).catch(() => {});
 
 // Initial render
-render('dashboard');
+loadDashboard();
+refreshBadges();
+setInterval(refreshBadges, 30000);   // обновляем бейджи раз в 30 сек глобально
