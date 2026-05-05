@@ -39,15 +39,16 @@ function colorFor(name) {
   return _palette[Math.abs(h) % _palette.length];
 }
 
-// Аватарка: <img> с fallback на цветные инициалы
+// Аватарка: цветной кружок с инициалами + поверх <img> (если загрузился — закроет фон)
 function avatar(tgId, name, size = 40) {
   const color = colorFor(name || String(tgId || '?'));
   const ini = initials(name);
   const fontSize = Math.round(size * 0.4);
-  const fallback = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:${fontSize}px;flex:0 0 ${size}px">${escape(ini)}</div>`;
-  if (!tgId) return fallback;
+  const wrap = `width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:${fontSize}px;flex:0 0 ${size}px;overflow:hidden;position:relative`;
+  if (!tgId) return `<div style="${wrap}">${escape(ini)}</div>`;
   const url = API.avatarUrl(tgId);
-  return `<img src="${url}" alt="${escape(ini)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex:0 0 ${size}px;background:${color}" onerror="this.outerHTML='${fallback.replace(/'/g, "\\'")}'">`;
+  // <img> позиционируется поверх инициалов. Не загрузилась → скрываем (без сломанной HTML-разметки).
+  return `<div style="${wrap}"><span>${escape(ini)}</span><img src="${url}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:${color}" onerror="this.style.display='none'"></div>`;
 }
 
 async function copyText(text) {
