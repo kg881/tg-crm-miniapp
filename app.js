@@ -464,11 +464,14 @@ const screens = {
           <div class="empty">
             <div class="empty-ico">▤</div>
             <div class="empty-title">Нет списков</div>
-            <div>Загрузите CSV: tg_username, company, first_message, status</div>
-            <button class="btn" style="margin-top:16px" data-action="upload-csv">Загрузить CSV</button>
+            <div>Загрузите CSV или создайте пустой и добавляйте лидов руками</div>
+            <div style="display:flex;gap:6px;margin-top:16px;justify-content:center">
+              <button class="btn" data-action="upload-csv">📂 Загрузить CSV</button>
+              <button class="btn secondary" data-action="create-empty-list">＋ Пустой список</button>
+            </div>
             <div style="margin-top:24px;font-size:12px;color:var(--text-muted);text-align:left">
-              <b>Пример CSV:</b><br>
-              <code style="display:block;background:var(--bg-secondary);padding:10px;border-radius:8px;margin-top:6px;text-align:left;font-size:11px">tg_username,company,first_message,status<br>@username1,Компания A,Привет, видел вашу...,Initial Contact<br>@username2,Компания B,Здравствуйте,New</code>
+              <b>Формат CSV:</b><br>
+              <code style="display:block;background:var(--bg-secondary);padding:10px;border-radius:8px;margin-top:6px;text-align:left;font-size:11px">tg_username,company,first_message,status</code>
             </div>
           </div>
         ` : lists.map(l => `
@@ -481,7 +484,10 @@ const screens = {
             <span class="lead-score cold">${l.count}</span>
           </div>
         `).join('')}
-        ${lists.length ? `<button class="btn full" style="margin-top:12px" data-action="upload-csv">+ Загрузить CSV</button>` : ''}
+        <div style="display:flex;gap:6px;margin-top:12px">
+          <button class="btn" style="flex:1" data-action="upload-csv">📂 CSV</button>
+          <button class="btn secondary" style="flex:1" data-action="create-empty-list">＋ Пустой список</button>
+        </div>
         <div class="card" style="margin-top:16px;background:linear-gradient(135deg,#dbeafe,#e0e7ff)">
           <div style="font-size:13px;color:#1e3a8a">
             💡 <b>Лайфхак:</b> перешлите любое сообщение боту <b>@crm_outreach_bot</b> — он добавит автора в выбранный список.
@@ -1418,6 +1424,16 @@ async function handleAction(action, el) {
 
     // Lists
     case 'upload-csv':       render('csv_upload', {}); break;
+    case 'create-empty-list': {
+      const name = prompt_('Название нового списка:', 'Список ' + new Date().toISOString().slice(0,10));
+      if (!name) return;
+      try {
+        const ll = await API.lists.create(name);
+        toast(`✅ Список «${ll.name}» создан`);
+        openList(ll.id, ll.name);
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
     case 'csv-upload-go': {
       const name = document.getElementById('cu-name').value.trim();
       const file = document.getElementById('cu-file').files[0];
@@ -1790,9 +1806,11 @@ async function handleAction(action, el) {
 
 // ===== Event delegation =====
 document.addEventListener('click', (e) => {
-  // Settings gear button (top-right)
+  // Settings gear button (top-right) → ведёт во вкладку «Ещё»
   if (e.target.id === 'settings-btn' || e.target.closest('#settings-btn')) {
-    handleAction('api-config'); return;
+    stopPoll();
+    render('more');
+    return;
   }
   const tab = e.target.closest('.tab');
   if (tab) {
