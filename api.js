@@ -1,5 +1,5 @@
 // API клиент для бэкенда BitOK CRM
-const DEFAULT_API_BASE = 'https://tahoe-campaigns-carlo-amend.trycloudflare.com';
+const DEFAULT_API_BASE = 'https://fortune-lean-secret-boat.trycloudflare.com';
 
 // Чистим старый сохранённый URL — теперь всегда берём актуальный из этого файла
 try { localStorage.removeItem('api_base'); } catch {}
