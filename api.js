@@ -47,6 +47,8 @@ const API = {
       return API.req('POST', `/api/inbox/conversations/${cid}/reply_media`, fd);
     },
     suggest:   (cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/suggest_reply`),
+    remove:    (cid)          => API.req('DELETE', `/api/inbox/conversations/${cid}`),
+    bulkDelete:(ids)          => API.req('POST',   '/api/inbox/conversations/bulk_delete', { ids }),
   },
 
   lists: {

@@ -1033,9 +1033,22 @@ const screens = {
           || (c.lead_username || '').toLowerCase().includes(q)
           || (c.last_text || '').toLowerCase().includes(q);
     });
+    const selectMode = !!st?.select_mode;
+    const selected = new Set(st?.selected || []);
+    const allOnPage = display.map(c => c.id);
+    const allChecked = allOnPage.length && allOnPage.every(id => selected.has(id));
     return `
-      <div class="screen">
-        <div class="head-row"><h2>Inbox · ${convs.length}</h2></div>
+      <div class="screen" style="${selectMode?'padding-bottom:80px':''}">
+        <div class="head-row">
+          <h2>Inbox · ${convs.length}${selectMode?` <span style="font-size:14px;color:var(--accent)">(выбрано ${selected.size})</span>`:''}</h2>
+          ${selectMode
+            ? `<div style="display:flex;gap:6px">
+                 <button class="btn secondary" style="padding:6px 12px;font-size:13px" data-action="ib-select-all">${allChecked?'Снять':'Все'}</button>
+                 <button class="btn secondary" style="padding:6px 12px;font-size:13px" data-action="ib-select-cancel">Отмена</button>
+               </div>`
+            : `<button class="btn secondary" style="padding:6px 12px;font-size:13px" data-action="ib-select-on">Выбрать</button>`}
+        </div>
+        ${selectMode ? '' : `
         <div class="search-bar">
           <input id="ib-search" type="search" placeholder="Поиск по имени, username, тексту..." value="${escape(q)}" oninput="window.__ibSearch(this.value)">
         </div>
@@ -1046,18 +1059,26 @@ const screens = {
             <div class="stage-chip ${filter===s?'active':''}" data-inbox-filter="${escape(s)}">${escape(s)} · ${counts[s]}</div>
           `).join('')}
         </div>
+        `}
         ${display.length === 0 ? '<div class="empty"><div class="empty-title">Ничего не найдено</div></div>' :
-          display.map(c => `
-            <div class="lead" data-action="open-conv" data-id="${c.id}">
-              ${avatar(c.lead_tg_id, c.lead_name || c.lead_username)}
+          display.map(c => {
+            const checked = selected.has(c.id);
+            return `
+            <div class="lead" data-action="${selectMode?'ib-toggle':'open-conv'}" data-id="${c.id}" data-conv-row="${c.id}" style="${checked?'background:rgba(37,99,235,0.10);outline:2px solid var(--accent)':''}">
+              ${selectMode ? `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 40px"><input type="checkbox" ${checked?'checked':''} style="width:22px;height:22px;pointer-events:none"></div>` : avatar(c.lead_tg_id, c.lead_name || c.lead_username)}
               <div class="lead-body">
                 <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}</div>
                 <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)} · ${prettyTime(c.last_message_at)}</div>
               </div>
               <span class="lead-score ${c.lead_status==='Trial Activated'?'hot':c.lead_status==='Testnet'?'warm':'cold'}">${escape(c.lead_status || c.account_phone)}</span>
             </div>
-          `).join('')
+          `;}).join('')
         }
+        ${selectMode && selected.size > 0 ? `
+          <div style="position:fixed;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom));z-index:30;padding:10px 16px;background:var(--bg);border-top:1px solid var(--border);max-width:540px;margin:0 auto;display:flex;gap:8px">
+            <button class="btn secondary" style="flex:1;color:#ef4444" data-action="ib-bulk-delete">🗑 Удалить ${selected.size}</button>
+          </div>
+        ` : ''}
       </div>`;
   },
 
@@ -1086,6 +1107,7 @@ const screens = {
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
             <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')}</div>
           </div>
+          <button class="icon-btn" data-action="conv-delete" data-id="${st.conv_id}" title="Удалить переписку" style="font-size:18px;color:#ef4444">🗑</button>
         </div>
         <div id="msg-list" class="conv-body">
           ${msgs.map(m => {
@@ -1844,6 +1866,65 @@ async function handleAction(action, el) {
       } catch (e) {
         out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}<br><br>Проверьте что в .env задан ANTHROPIC_API_KEY</div>`;
       }
+      break;
+    }
+
+    // Inbox: select mode + bulk delete
+    case 'ib-select-on': {
+      render('inbox', { ...screenState.inbox, select_mode: true, selected: [] });
+      break;
+    }
+    case 'ib-select-cancel': {
+      render('inbox', { ...screenState.inbox, select_mode: false, selected: [] });
+      break;
+    }
+    case 'ib-toggle': {
+      const id = parseInt(el.dataset.id, 10);
+      const st = screenState.inbox;
+      const sel = new Set(st.selected || []);
+      sel.has(id) ? sel.delete(id) : sel.add(id);
+      render('inbox', { ...st, selected: Array.from(sel) });
+      break;
+    }
+    case 'ib-select-all': {
+      const st = screenState.inbox;
+      const filter = st.filter || 'all';
+      const q = (st.q || '').toLowerCase().trim();
+      let display = (st.conversations || []);
+      if (filter !== 'all') display = display.filter(c => filter === 'unread' ? c.unread : (c.lead_status || 'Без статуса') === filter);
+      if (q) display = display.filter(c =>
+        (c.lead_name||'').toLowerCase().includes(q)
+        || (c.lead_username||'').toLowerCase().includes(q)
+        || (c.last_text||'').toLowerCase().includes(q));
+      const ids = display.map(c => c.id);
+      const sel = new Set(st.selected || []);
+      const allIn = ids.every(id => sel.has(id));
+      if (allIn) ids.forEach(id => sel.delete(id));
+      else ids.forEach(id => sel.add(id));
+      render('inbox', { ...st, selected: Array.from(sel) });
+      break;
+    }
+    case 'ib-bulk-delete': {
+      const st = screenState.inbox;
+      const ids = st.selected || [];
+      if (!ids.length) return;
+      const yes = await confirm_(`Удалить ${ids.length} переписок? (на стороне Telegram чаты сохранятся)`);
+      if (!yes) return;
+      try {
+        const r = await API.inbox.bulkDelete(ids);
+        toast(`🗑 Удалено: ${r.deleted}`);
+        // Перезагружаем inbox со снятием режима выбора
+        screenState.inbox = { ...st, select_mode: false, selected: [] };
+        loadInbox();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'conv-delete': {
+      const cid = parseInt(el.dataset.id, 10);
+      const yes = await confirm_('Удалить эту переписку из CRM-инбокса?');
+      if (!yes) return;
+      try { await API.inbox.remove(cid); toast('Удалено'); loadInbox(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
 
