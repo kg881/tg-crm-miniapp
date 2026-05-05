@@ -119,6 +119,111 @@ const MOCK = {
 };
 const scoreClass = (n) => n >= 70 ? 'hot' : n >= 40 ? 'warm' : 'cold';
 
+// ===== Schedule editor =====
+const DAY_LABELS = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const DEFAULT_SCHEDULE = { enabled: false, days: [true,true,true,true,true,false,false], time_from: '09:00', time_to: '18:00', timezone: 'UTC' };
+const TIMEZONES = ['UTC','Europe/Moscow','Europe/Kyiv','Europe/London','Europe/Berlin','Europe/Lisbon','Asia/Dubai','Asia/Bangkok','Asia/Tokyo','America/New_York','America/Los_Angeles'];
+function scheduleEditorHTML(sch) {
+  const s = sch || DEFAULT_SCHEDULE;
+  const days = (s.days && s.days.length === 7) ? s.days : DEFAULT_SCHEDULE.days;
+  const tf = s.time_from || '09:00';
+  const tt = s.time_to   || '18:00';
+  const tz = s.timezone  || 'UTC';
+  const enabled = !!s.enabled;
+  return `
+    <div class="card">
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input id="sch-enabled" type="checkbox" ${enabled?'checked':''} style="width:20px;height:20px">
+        <div style="flex:1">
+          <div style="font-weight:500">Включить расписание</div>
+          <div style="font-size:12px;color:var(--text-muted)">Без расписания акк шлёт круглосуточно. С расписанием — только в выбранные дни и часы.</div>
+        </div>
+      </label>
+      <div id="sch-body" style="${enabled?'':'opacity:.5;pointer-events:none'};margin-top:12px">
+        ${DAY_LABELS.map((d, i) => `
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <input type="checkbox" data-sch-day="${i}" ${days[i]?'checked':''} style="width:18px;height:18px">
+            <span style="flex:1;font-size:13px">${d}</span>
+            <input type="time" data-sch-tf="${i}" value="${tf}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+            <span style="color:var(--text-muted)">—</span>
+            <input type="time" data-sch-tt="${i}" value="${tt}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+          </div>
+        `).join('')}
+        <label style="font-size:12px;color:var(--text-muted);margin-top:14px;display:block">Часовой пояс</label>
+        <select id="sch-tz" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          ${TIMEZONES.map(z => `<option value="${z}" ${z===tz?'selected':''}>${z}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  `;
+}
+function collectSchedule() {
+  const enabled = document.getElementById('sch-enabled')?.checked;
+  if (!document.getElementById('sch-body')) return null;
+  const days = [];
+  let tf = '09:00', tt = '18:00';
+  for (let i = 0; i < 7; i++) {
+    days.push(document.querySelector(`[data-sch-day="${i}"]`)?.checked || false);
+    if (i === 0) {
+      tf = document.querySelector(`[data-sch-tf="${i}"]`)?.value || '09:00';
+      tt = document.querySelector(`[data-sch-tt="${i}"]`)?.value || '18:00';
+    }
+  }
+  // Если у первого дня изменили время — применяем ко всем (UI как у конкурента — единое окно, чекбоксы дней)
+  // Но если бы были разные tf/tt по дням — мы это поддерживаем (берём с первого включённого)
+  const tz = document.getElementById('sch-tz')?.value || 'UTC';
+  return { enabled: !!enabled, days, time_from: tf, time_to: tt, timezone: tz };
+}
+
+// При клике на чекбокс «Включить расписание» — гасим/подсвечиваем форму
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'sch-enabled') {
+    const body = document.getElementById('sch-body');
+    if (body) {
+      const on = e.target.checked;
+      body.style.opacity = on ? '1' : '.5';
+      body.style.pointerEvents = on ? 'auto' : 'none';
+    }
+  }
+});
+
+// ===== FAB (плавающая «+» с раскрывающимися действиями) =====
+function accountsFabHTML() {
+  return `
+    <div class="fab-wrap" id="acc-fab">
+      <div class="fab-action" data-action="fab-forward">
+        <span class="fab-label">Форварднуть сообщение ⤴</span>
+        <button class="fab-mini">⤴</button>
+      </div>
+      <div class="fab-action" data-action="fab-sync">
+        <span class="fab-label accent">Синк ТГ-папок</span>
+        <button class="fab-mini" style="background:var(--accent);color:#fff;border-color:transparent">▦</button>
+      </div>
+      <div class="fab-action" data-action="fab-qr">
+        <span class="fab-label">Сканировать QR</span>
+        <button class="fab-mini">▣</button>
+      </div>
+      <div class="fab-action" data-action="fab-manual">
+        <span class="fab-label">Добавить вручную</span>
+        <button class="fab-mini">✎</button>
+      </div>
+      <button class="fab-main" data-action="fab-toggle">+</button>
+    </div>
+    <div class="fab-backdrop" id="acc-fab-backdrop" data-action="fab-toggle"></div>
+  `;
+}
+function toggleFab() {
+  const w = document.getElementById('acc-fab');
+  const b = document.getElementById('acc-fab-backdrop');
+  if (!w) return;
+  const open = w.classList.toggle('open');
+  if (b) b.classList.toggle('show', open);
+}
+function closeFab() {
+  document.getElementById('acc-fab')?.classList.remove('open');
+  document.getElementById('acc-fab-backdrop')?.classList.remove('show');
+}
+
 // ===== Screens =====
 const screens = {
 
@@ -249,7 +354,7 @@ const screens = {
     const stats = st?.stats || {};
     return `
       <div class="screen">
-        <div class="head-row"><h2>TG-аккаунты</h2><button class="add-btn" data-action="add-account">+</button></div>
+        <div class="head-row"><h2>TG-аккаунты</h2></div>
         ${accs.length === 0 ? `
           <div class="empty">
             <div class="empty-ico">⚇</div>
@@ -283,6 +388,7 @@ const screens = {
             </div>
           </div>
         `;}).join('')}
+        ${accountsFabHTML()}
       </div>`;
   },
 
@@ -318,6 +424,9 @@ const screens = {
           <input id="ad-proxy" placeholder="socks5://..." value="${escape(a.proxy || '')}"
                  style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
         </div>
+
+        <div class="section-title">⏰ Расписание отправки</div>
+        ${scheduleEditorHTML(a.schedule)}
 
         <div class="section-title">🔥 Warmup (анти-спам)</div>
         <div class="card">
@@ -555,7 +664,7 @@ const screens = {
           return `
           <div class="card">
             <div class="card-row" data-action="open-campaign" data-id="${c.id}" style="cursor:pointer">
-              <div class="card-title">${escape(c.name)}</div>
+              <div class="card-title">${escape(c.name)}${c.type==='dynamic'?' <span style="font-size:11px;color:var(--accent);font-weight:500">↻ dyn</span>':''}</div>
               <span class="campaign-status ${c.status}">${c.status}</span>
             </div>
             <div class="progress" style="margin-top:10px"><div class="progress-bar" style="width:${pct}%"></div></div>
@@ -588,23 +697,66 @@ const screens = {
     const stepDots = [1,2,3,4].map(n =>
       `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${n<=step?'var(--accent)':'var(--border)'};margin-right:6px"></span>`
     ).join('');
-    if (step === 1) return `
+    if (step === 1) {
+      const typ = data.type || 'one_shot';
+      const allStatuses = window.LEAD_STATUSES || [];
+      const pickedStatuses = new Set((data.filter_config?.statuses) || []);
+      return `
       <div class="screen">
         <div class="head-row"><h2 style="font-size:18px">Новая кампания · 1/4</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
+
+        <div class="section-title">Тип</div>
+        <div class="card" data-action="cw-pick-type" data-type="one_shot" style="cursor:pointer;${typ==='one_shot'?'border:2px solid var(--accent)':''}">
+          <div class="card-row">
+            <div>
+              <div style="font-weight:600">${typ==='one_shot'?'◉':'○'} Одноразовая</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Снимок списка на момент запуска. Новые лиды добавлять руками.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" data-action="cw-pick-type" data-type="dynamic" style="cursor:pointer;${typ==='dynamic'?'border:2px solid var(--accent)':''}">
+          <div class="card-row">
+            <div>
+              <div style="font-weight:600">${typ==='dynamic'?'◉':'○'} Динамическая</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Все лиды из списка, удовлетворяющие фильтру, авто-добавляются в кампанию.</div>
+            </div>
+          </div>
+        </div>
+
         <div class="section-title">Название</div>
         <input id="cw-name" value="${escape(data.name || 'Кампания ' + new Date().toISOString().slice(0,10))}"
                style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:15px">
-        <div class="section-title">Список лидов</div>
-        ${lists.map(l => `
+
+        <div class="section-title">Источник лидов</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="btn secondary" style="flex:1;padding:10px;font-size:13px" data-action="cw-source-csv">📂 CSV</button>
+          <button class="btn secondary" style="flex:1;padding:10px;font-size:13px" data-action="cw-source-folder">📁 ТГ-папка</button>
+          <button class="btn secondary" style="flex:1;padding:10px;font-size:13px" data-action="cw-source-leads">📋 Из CRM</button>
+        </div>
+
+        <div class="section-title">Список лидов ${data.list_id?'✓':''}</div>
+        ${lists.length === 0 ? '<div class="card" style="font-size:13px;color:var(--text-muted)">Пока нет списков. Загрузите CSV или импортируйте папку выше.</div>' : lists.map(l => `
           <div class="lead" data-action="cw-pick-list" data-id="${l.id}" style="${data.list_id===l.id?'border:2px solid var(--accent)':''}">
             <div class="avatar blue">▤</div>
             <div class="lead-body"><div class="lead-name">${escape(l.name)}</div><div class="lead-status">${l.count} лидов · ${escape(l.source)}</div></div>
             ${data.list_id===l.id ? '<span style="color:var(--accent);font-size:18px">✓</span>' : ''}
           </div>
         `).join('')}
+
+        ${typ === 'dynamic' ? `
+          <div class="section-title">Фильтр по статусу (опционально)</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Только лиды с выбранными статусами попадут в кампанию. Если ничего не выбрать — все.</div>
+          <div class="stage-strip">
+            ${allStatuses.map(s => `
+              <div class="stage-chip ${pickedStatuses.has(s)?'active':''}" data-action="cw-toggle-status" data-status="${escape(s)}">${escape(s)}</div>
+            `).join('')}
+          </div>
+        ` : ''}
+
         <button class="btn full" style="margin-top:8px" data-action="cw-next" data-from="1">Далее</button>
       </div>`;
+    }
     if (step === 2) return `
       <div class="screen">
         <div class="head-row"><h2 style="font-size:18px">Шаблон · 2/4</h2></div>
@@ -659,12 +811,16 @@ const screens = {
         <div class="head-row"><h2 style="font-size:18px">Подтверждение · 4/4</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         <div class="card">
-          <div class="card-row"><div class="card-title">${escape(data.name)}</div></div>
+          <div class="card-row"><div class="card-title">${escape(data.name)}</div>
+            <span class="lead-score ${data.type==='dynamic'?'warm':'cold'}">${data.type==='dynamic'?'динамическая':'одноразовая'}</span>
+          </div>
           <div style="font-size:13px;color:var(--text-muted);margin-top:10px;line-height:1.7">
             <div>📋 Список: <b style="color:var(--text)">${escape(ll?.name||'?')}</b> (${ll?.count||0} лидов)</div>
+            ${data.type==='dynamic' && (data.filter_config?.statuses||[]).length ? `<div>🔎 Фильтр: <b style="color:var(--text)">${(data.filter_config.statuses).map(escape).join(', ')}</b></div>` : ''}
             <div>✉ Шаблон: <b style="color:var(--text)">${escape(tt?.name||'?')}</b></div>
             <div>⚇ Аккаунтов: <b style="color:var(--text)">${aa.length}</b> · общий капасити <b style="color:var(--text)">${totalCap}/день</b></div>
             <div>⏱ Расчётно займёт: <b style="color:var(--text)">~${days} ${typeof days==='number' && days===1?'день':'дней'}</b></div>
+            ${data.type==='dynamic' ? `<div style="margin-top:6px;color:var(--accent)">↻ Новые лиды из списка будут добавляться в кампанию автоматически</div>` : ''}
           </div>
         </div>
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-test-send">🧪 Сначала тест себе</button>
@@ -1042,6 +1198,45 @@ const screens = {
       </div>`;
   },
 
+  // ---------- TG FOLDERS (синк ТГ-папок) ----------
+  tg_folders: (st) => {
+    const accs = (st?.accounts || []).filter(a => a.status === 'active');
+    const sel  = st?.account_id || (accs[0]?.id);
+    const folders = st?.folders;
+    const loading = st?.loading;
+    const err = st?.error;
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Синк ТГ-папок</h2></div>
+        ${accs.length === 0 ? `
+          <div class="card" style="background:#fef3c7;color:#92400e;font-size:13px">
+            Нет активных аккаунтов. Подключите хотя бы один — папки лежат внутри ТГ-аккаунта.
+          </div>
+        ` : `
+          <div class="card">
+            <label style="font-size:12px;color:var(--text-muted)">Аккаунт</label>
+            <select id="tf-acc" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+              ${accs.map(a => `<option value="${a.id}" ${a.id===sel?'selected':''}>${escape(a.first_name||a.phone)} (${escape(a.phone)})</option>`).join('')}
+            </select>
+            <button class="btn full" style="margin-top:10px" data-action="tf-load">📁 Показать папки</button>
+          </div>
+          ${loading ? '<div class="card">⏳ Загружаю папки…</div>' : ''}
+          ${err ? `<div class="card" style="color:#ef4444">${escape(err)}</div>` : ''}
+          ${folders ? (folders.length === 0
+            ? '<div class="card">У этого аккаунта нет папок (только «Все чаты»). Создайте папку в Telegram и попробуйте снова.</div>'
+            : `<div class="section-title">Папки</div>` + folders.map(f => `
+              <div class="card-row card" style="cursor:pointer" data-action="tf-import" data-fid="${f.id}" data-fname="${escape(f.title)}">
+                <div>
+                  <div style="font-weight:600">${escape(f.title)}</div>
+                  <div style="font-size:12px;color:var(--text-muted)">${f.count} чатов в папке</div>
+                </div>
+                <span class="lead-score cold">импорт</span>
+              </div>
+            `).join('')) : ''}
+        `}
+      </div>`;
+  },
+
   // ---------- CSV UPLOAD (экран вместо prompt) ----------
   csv_upload: (st) => `
     <div class="screen">
@@ -1344,6 +1539,90 @@ async function handleAction(action, el) {
     case 'parse-group':     loadParserTool(); break;
     case 'find-groups':     loadSearchTool(); break;
 
+    // FAB on accounts
+    case 'fab-toggle':      toggleFab(); break;
+    case 'fab-manual':      closeFab(); render('add_account', { step: 'phone', phone: '', proxy: '' }); break;
+    case 'fab-forward': {
+      closeFab();
+      // Открываем чат с CRM-ботом — туда форвардим сообщение, бот добавит автора в список
+      openTgUser('crm_outreach_bot');
+      setTimeout(() => toast('Форварданите любое сообщение боту — он добавит автора в выбранный список'), 600);
+      break;
+    }
+    case 'fab-sync': {
+      closeFab();
+      try {
+        const accounts = await API.accounts.list();
+        render('tg_folders', { accounts, folders: null, account_id: null });
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'fab-qr': {
+      closeFab();
+      const accs = (screenState.accounts?.accounts || []).filter(a => a.status === 'active');
+      if (!accs.length) { toast('Нужен хотя бы один активный акк'); return; }
+      // 1) Пробуем нативный сканер TG
+      const handleQr = async (text) => {
+        if (!text) return;
+        try { tg?.closeScanQrPopup?.(); } catch {}
+        const acc = accs[0];   // используем первый активный
+        const list_name = `QR · ${new Date().toISOString().slice(0,10)}`;
+        try {
+          toast('⏳ Вступаю и собираю участников...');
+          const r = await API.accounts.qrJoin(acc.id, { invite: text, list_name });
+          toast(`✅ ${r.chat_title || 'Чат'} — собрано ${r.count} лидов`);
+          loadAccounts();
+        } catch (e) { toast(`Ошибка: ${e.message}`); }
+      };
+      if (tg?.showScanQrPopup) {
+        try {
+          tg.showScanQrPopup({ text: 'Наведите на QR-код Telegram-чата' }, (text) => { handleQr(text); return true; });
+        } catch (e) {
+          // fallback на ручной ввод
+          const manual = prompt_('Не получилось открыть сканер. Вставьте инвайт-ссылку:', '');
+          if (manual) handleQr(manual);
+        }
+      } else {
+        const manual = prompt_('Сканер недоступен в этой версии TG. Вставьте инвайт-ссылку:', '');
+        if (manual) handleQr(manual);
+      }
+      break;
+    }
+
+    // TG folders sync
+    case 'tf-load': {
+      const id = parseInt(document.getElementById('tf-acc').value, 10);
+      const st = screenState.tg_folders;
+      render('tg_folders', { ...st, account_id: id, folders: null, loading: true, error: null });
+      try {
+        const folders = await API.accounts.folders(id);
+        render('tg_folders', { ...st, account_id: id, folders, loading: false, error: null });
+      } catch (e) {
+        render('tg_folders', { ...st, account_id: id, folders: null, loading: false, error: e.message });
+      }
+      break;
+    }
+    case 'tf-import': {
+      const fid   = parseInt(el.dataset.fid, 10);
+      const fname = el.dataset.fname;
+      const st    = screenState.tg_folders;
+      const accId = st.account_id;
+      const list_name = `📁 ${fname} — ${new Date().toISOString().slice(0,10)}`;
+      try {
+        toast('⏳ Импортирую участников папки...');
+        const r = await API.accounts.importFolder(accId, { folder_id: fid, list_name });
+        toast(`✅ Создан список «${r.name||list_name}» — ${r.count} лидов`);
+        if (st.return_to_wizard) {
+          const lists = await API.lists.list().catch(() => []);
+          const w = screenState.campaign_wizard || {};
+          render('campaign_wizard', { ...w, lists, data: { ...(w.data||{}), list_id: r.list_id } });
+        } else {
+          loadLists();
+        }
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
     // Accounts
     case 'add-account':     render('add_account', { step: 'phone', phone: '', proxy: '' }); break;
     case 'back-to-accounts': loadAccounts(); break;
@@ -1394,6 +1673,7 @@ async function handleAction(action, el) {
         warmup_enabled:     document.getElementById('ad-warmup')?.checked || false,
         auto_reply_enabled: document.getElementById('ad-autoreply')?.checked || false,
         auto_reply_prompt:  document.getElementById('ad-autoprompt')?.value || '',
+        schedule:           collectSchedule(),
       };
       try { await API.accounts.update(id, data); toast('✅ Сохранено'); loadAccounts(); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
@@ -1438,13 +1718,21 @@ async function handleAction(action, el) {
       const name = document.getElementById('cu-name').value.trim();
       const file = document.getElementById('cu-file').files[0];
       const out = document.getElementById('cu-result');
+      const returnToWizard = !!screenState.csv_upload?.return_to_wizard;
       if (!file) { out.innerHTML = '<div class="card" style="color:#ef4444">Выберите CSV-файл</div>'; return; }
       if (!name) { out.innerHTML = '<div class="card" style="color:#ef4444">Укажите название</div>'; return; }
       out.innerHTML = '<div class="card">⏳ Загружаю...</div>';
       try {
         const r = await API.lists.upload(name, file);
         out.innerHTML = `<div class="card">✅ Импортировано: ${r.count} лидов в список «${escape(r.name)}»</div>`;
-        setTimeout(() => loadLists(), 1500);
+        if (returnToWizard) {
+          // обновляем lists в визарде и возвращаемся
+          const lists = await API.lists.list().catch(() => []);
+          const w = screenState.campaign_wizard || {};
+          render('campaign_wizard', { ...w, lists, data: { ...(w.data||{}), list_id: r.id } });
+        } else {
+          setTimeout(() => loadLists(), 1500);
+        }
       } catch (e) {
         out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}</div>`;
       }
@@ -1668,6 +1956,45 @@ async function handleAction(action, el) {
       render('campaign_wizard', { ...w, data: { ...w.data, list_id: id } });
       break;
     }
+    case 'cw-pick-type': {
+      const w = screenState.campaign_wizard;
+      const t = el.dataset.type;
+      // при смене на one_shot — выкидываем filter_config
+      const fc = t === 'dynamic' ? (w.data.filter_config || {}) : null;
+      render('campaign_wizard', { ...w, data: { ...w.data, type: t, filter_config: fc } });
+      break;
+    }
+    case 'cw-toggle-status': {
+      const w = screenState.campaign_wizard;
+      const s = el.dataset.status;
+      const fc = { ...(w.data.filter_config || {}) };
+      const arr = new Set(fc.statuses || []);
+      arr.has(s) ? arr.delete(s) : arr.add(s);
+      fc.statuses = Array.from(arr);
+      render('campaign_wizard', { ...w, data: { ...w.data, filter_config: fc } });
+      break;
+    }
+    case 'cw-source-csv': {
+      const w = screenState.campaign_wizard;
+      // Открываем загрузку CSV с возвратом в wizard
+      render('csv_upload', { return_to_wizard: true });
+      break;
+    }
+    case 'cw-source-leads': {
+      // ничего не делаем — список лидов уже отрендерен ниже на этом шаге
+      toast('Выберите список из списка ниже ⬇');
+      break;
+    }
+    case 'cw-source-folder': {
+      // Открываем экран синка ТГ-папок с флагом возврата
+      try {
+        const accounts = await API.accounts.list();
+        const active = accounts.filter(a => a.status === 'active');
+        if (!active.length) { toast('Нужен активный TG-аккаунт'); return; }
+        render('tg_folders', { accounts, folders: null, return_to_wizard: true });
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
     case 'cw-pick-template': {
       const id = parseInt(el.dataset.id, 10);
       const w = screenState.campaign_wizard;
@@ -1710,6 +2037,8 @@ async function handleAction(action, el) {
         const c = await API.campaigns.create({
           name: w.data.name, list_id: w.data.list_id,
           template_id: w.data.template_id, account_ids: w.data.account_ids,
+          type: w.data.type || 'one_shot',
+          filter_config: w.data.filter_config || null,
         });
         if (start) await API.campaigns.control(c.id, 'start');
         toast(start ? '🚀 Кампания запущена' : '💾 Сохранена как draft');

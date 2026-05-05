@@ -386,6 +386,63 @@ body {
   flex: 0 0 auto;
 }
 
+/* FAB (плавающая кнопка добавления) */
+.fab-wrap {
+  position: fixed;
+  right: 20px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 12px;
+}
+.fab-action {
+  display: flex; align-items: center; gap: 10px;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .15s, transform .15s;
+  pointer-events: none;
+}
+.fab-wrap.open .fab-action {
+  opacity: 1; transform: translateY(0); pointer-events: auto;
+}
+.fab-label {
+  background: rgba(15, 23, 42, .85);
+  color: #fff;
+  font-size: 13px; font-weight: 500;
+  padding: 6px 12px; border-radius: 8px;
+  white-space: nowrap;
+}
+.fab-label.accent { background: var(--accent); color: var(--accent-text); }
+.fab-mini {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.fab-main {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--accent); color: var(--accent-text);
+  border: 0;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, .35);
+  font-size: 28px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .2s;
+}
+.fab-wrap.open .fab-main { transform: rotate(45deg); background: #ef4444; box-shadow: 0 4px 16px rgba(239, 68, 68, .35); }
+.fab-backdrop {
+  position: fixed; inset: 0; z-index: 49;
+  background: rgba(15, 23, 42, .35);
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s;
+}
+.fab-wrap.open ~ .fab-backdrop, .fab-backdrop.show { opacity: 1; pointer-events: auto; }
+
 /* ANIMATIONS */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
