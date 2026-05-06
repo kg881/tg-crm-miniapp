@@ -285,6 +285,7 @@ const screens = {
 
         <div class="section-title">Быстрые действия</div>
         <button class="btn full" data-action="run-briefing">☀️ Прислать брифинг в чат с ботом</button>
+        ${accountsFabHTML()}
       </div>
     `;
   },
@@ -695,7 +696,7 @@ const screens = {
     const tmpls = st?.templates ?? [];
     const accs  = st?.accounts ?? [];
     const data  = st?.data || {};
-    const stepDots = [1,2,3,4].map(n =>
+    const stepDots = [1,2,3,4,5].map(n =>
       `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${n<=step?'var(--accent)':'var(--border)'};margin-right:6px"></span>`
     ).join('');
     if (step === 1) {
@@ -704,7 +705,7 @@ const screens = {
       const pickedStatuses = new Set((data.filter_config?.statuses) || []);
       return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Новая кампания · 1/4</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Новая кампания · 1/5</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
 
         <div class="section-title">Тип</div>
@@ -760,7 +761,7 @@ const screens = {
     }
     if (step === 2) return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Шаблон · 2/4</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Шаблон · 2/5</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         ${tmpls.map(t => `
           <div class="card" data-action="cw-pick-template" data-id="${t.id}" style="${data.template_id===t.id?'border:2px solid var(--accent)':''}">
@@ -777,10 +778,36 @@ const screens = {
         </div>
       </div>`;
     if (step === 3) {
+      // Цепочка касаний — 5 follow-up'ов с фиксированными задержками
+      const labels = ['Через 1 день', 'Через 2 дня', 'Через 3 дня', 'Через неделю', 'Через 2 недели'];
+      const fus = data.followups || [];
+      const get = (i) => (fus.find(f => f.step_idx === i+1)?.body) || '';
+      return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">Цепочка касаний · 3/5</h2></div>
+        <div style="margin-bottom:14px">${stepDots}</div>
+        <div class="card" style="background:#dbeafe;color:#1e3a8a;font-size:12px;padding:10px 12px">
+          💡 Если лид не ответил на первое сообщение, эти follow-up'ы уйдут автоматически. Ответил на любом — цепочка останавливается. Пустое поле = шаг пропускается.
+        </div>
+        ${labels.map((lbl, i) => `
+          <div style="margin-top:12px">
+            <label style="font-size:12px;color:var(--text-muted);font-weight:600">${escape(lbl)}</label>
+            <textarea data-fu-step="${i+1}" rows="3" placeholder="Текст follow-up #${i+1} (необязательно)"
+              style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(get(i))}</textarea>
+          </div>
+        `).join('')}
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Переменные {{first_name}}, {{full_name}}, {{username}}, {{company}} и spintax {{a|b|c}} работают так же как в шаблонах.</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="3">Назад</button>
+          <button class="btn" style="flex:1" data-action="cw-next" data-from="3">Далее</button>
+        </div>
+      </div>`;
+    }
+    if (step === 4) {
       const picked = data.account_ids || [];
       return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Аккаунты · 3/4</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Аккаунты · 4/5</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Выберите аккаунты для рассылки. Сообщения распределятся round-robin.</div>
         ${accs.map(a => {
@@ -796,20 +823,22 @@ const screens = {
           </div>`;
         }).join('')}
         <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="3">Назад</button>
-          <button class="btn" style="flex:1" data-action="cw-next" data-from="3">Далее</button>
+          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="4">Назад</button>
+          <button class="btn" style="flex:1" data-action="cw-next" data-from="4">Далее</button>
         </div>
       </div>`;
     }
-    if (step === 4) {
+    if (step === 5) {
       const ll = lists.find(l=>l.id===data.list_id);
       const tt = tmpls.find(t=>t.id===data.template_id);
       const aa = accs.filter(a=>(data.account_ids||[]).includes(a.id));
       const totalCap = aa.reduce((s,a)=>s+a.daily_limit,0);
       const days = totalCap ? Math.ceil((ll?.count||0) / totalCap) : '∞';
       return `
+      const fuCount = (data.followups || []).filter(f => (f.body || '').trim()).length;
+      return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Подтверждение · 4/4</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Подтверждение · 5/5</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         <div class="card">
           <div class="card-row"><div class="card-title">${escape(data.name)}</div>
@@ -821,6 +850,7 @@ const screens = {
             <div>✉ Шаблон: <b style="color:var(--text)">${escape(tt?.name||'?')}</b></div>
             <div>⚇ Аккаунтов: <b style="color:var(--text)">${aa.length}</b> · общий капасити <b style="color:var(--text)">${totalCap}/день</b></div>
             <div>⏱ Расчётно займёт: <b style="color:var(--text)">~${days} ${typeof days==='number' && days===1?'день':'дней'}</b></div>
+            <div>↪ Цепочка касаний: <b style="color:var(--text)">${fuCount} follow-up${fuCount===1?'':'ов'}</b>${fuCount?' (1, 2, 3, 7, 14 дней)':' — без follow-up'}</div>
             ${data.type==='dynamic' ? `<div style="margin-top:6px;color:var(--accent)">↻ Новые лиды из списка будут добавляться в кампанию автоматически</div>` : ''}
           </div>
         </div>
@@ -2094,7 +2124,6 @@ async function handleAction(action, el) {
     case 'cw-next': {
       const from = parseInt(el.dataset.from, 10);
       const w = screenState.campaign_wizard;
-      // Сохраняем имя из формы при переходе с шага 1
       let data = w.data;
       if (from === 1) {
         const nm = document.getElementById('cw-name')?.value.trim();
@@ -2102,13 +2131,32 @@ async function handleAction(action, el) {
         if (!data.list_id) { toast('Выберите список лидов'); return; }
       }
       if (from === 2 && !data.template_id) { toast('Выберите шаблон'); return; }
-      if (from === 3 && !(data.account_ids || []).length) { toast('Выберите хотя бы один аккаунт'); return; }
+      if (from === 3) {
+        // Собираем тексты follow-up'ов
+        const fus = [];
+        for (let i = 1; i <= 5; i++) {
+          const v = document.querySelector(`[data-fu-step="${i}"]`)?.value?.trim() || '';
+          if (v) fus.push({ step_idx: i, body: v });
+        }
+        data = { ...data, followups: fus };
+      }
+      if (from === 4 && !(data.account_ids || []).length) { toast('Выберите хотя бы один аккаунт'); return; }
       render('campaign_wizard', { ...w, step: from + 1, data });
       break;
     }
     case 'cw-back': {
       const from = parseInt(el.dataset.from, 10);
-      render('campaign_wizard', { ...screenState.campaign_wizard, step: from - 1 });
+      // Сохраняем follow-up'ы если уходим с шага 3 назад тоже
+      let data = screenState.campaign_wizard.data;
+      if (from === 3) {
+        const fus = [];
+        for (let i = 1; i <= 5; i++) {
+          const v = document.querySelector(`[data-fu-step="${i}"]`)?.value?.trim() || '';
+          if (v) fus.push({ step_idx: i, body: v });
+        }
+        data = { ...data, followups: fus };
+      }
+      render('campaign_wizard', { ...screenState.campaign_wizard, step: from - 1, data });
       break;
     }
     case 'cw-create-and-start':
@@ -2121,6 +2169,7 @@ async function handleAction(action, el) {
           template_id: w.data.template_id, account_ids: w.data.account_ids,
           type: w.data.type || 'one_shot',
           filter_config: w.data.filter_config || null,
+          followups: w.data.followups || [],
         });
         if (start) await API.campaigns.control(c.id, 'start');
         toast(start ? '🚀 Кампания запущена' : '💾 Сохранена как draft');
