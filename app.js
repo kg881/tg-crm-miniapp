@@ -92,6 +92,11 @@ function _renderInboxSearch(value) {
 }
 window.__ldSearch = _renderListDetailSearch;
 window.__ibSearch = _renderInboxSearch;
+window.__cwToggleAb = (on) => {
+  const w = screenState.campaign_wizard;
+  if (!w) return;
+  render('campaign_wizard', { ...w, data: { ...w.data, ab_mode: on, ...(on ? {} : { template_id_b: null }) } });
+};
 const haptic = () => tg?.HapticFeedback?.impactOccurred?.('light');
 const toast = (msg) => tg?.showAlert?.(msg) || alert(msg);
 const confirm_ = (msg) => new Promise(r => tg?.showConfirm?.(msg, r) || r(window.confirm(msg)));
@@ -721,9 +726,10 @@ const screens = {
           return `
           <div class="card">
             <div class="card-row" data-action="open-campaign" data-id="${c.id}" style="cursor:pointer">
-              <div class="card-title">${escape(c.name)}${c.type==='dynamic'?' <span style="font-size:11px;color:var(--accent);font-weight:500">↻ dyn</span>':''}</div>
-              <span class="campaign-status ${c.status}">${c.status}</span>
+              <div class="card-title">${escape(c.name)}${c.type==='dynamic'?' <span style="font-size:11px;color:var(--accent);font-weight:500">↻ dyn</span>':''}${c.template_id_b?' <span style="font-size:11px;color:#f59e0b;font-weight:500">A/B</span>':''}</div>
+              <span class="campaign-status ${c.status}">${c.auto_paused?'🔥 auto-pause':c.status}</span>
             </div>
+            ${c.auto_paused ? '<div style="font-size:11px;color:#b91c1c;margin-top:4px">⚠ Sender приостановил — reply rate ниже порога. Проверь шаблон.</div>' : ''}
             <div class="progress" style="margin-top:10px"><div class="progress-bar" style="width:${pct}%"></div></div>
             <div class="campaign-meta">
               <span>Отправлено: <b>${c.sent}/${total}</b></span>
@@ -814,24 +820,47 @@ const screens = {
         <button class="btn full" style="margin-top:8px" data-action="cw-next" data-from="1">Далее</button>
       </div>`;
     }
-    if (step === 2) return `
+    if (step === 2) {
+      const abMode = !!data.ab_mode;
+      return `
       <div class="screen">
         <div class="head-row"><h2 style="font-size:18px">Шаблон · 2/5</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" id="cw-ab" ${abMode?'checked':''} onchange="window.__cwToggleAb(this.checked)" style="width:18px;height:18px">
+          <div>
+            <div style="font-weight:500;font-size:14px">A/B-тест: 2 варианта 50/50</div>
+            <div style="font-size:11px;color:var(--text-muted)">Sender раскидает оба текста поровну. Аналитика покажет какой работает лучше.</div>
+          </div>
+        </label>
+        ${abMode ? `<div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px">A — основной</div>` : ''}
         ${tmpls.map(t => `
           <div class="card" data-action="cw-pick-template" data-id="${t.id}" style="${data.template_id===t.id?'border:2px solid var(--accent)':''}">
             <div class="card-row">
-              <div class="card-title">${escape(t.name)}</div>
-              ${data.template_id===t.id ? '<span style="color:var(--accent);font-size:18px">✓</span>' : ''}
+              <div class="card-title">${escape(t.name)} ${data.template_id===t.id?'<span style="color:var(--accent);font-size:11px">A</span>':''}${data.template_id_b===t.id?'<span style="color:#f59e0b;font-size:11px">B</span>':''}</div>
+              ${(data.template_id===t.id||data.template_id_b===t.id) ? '<span style="color:var(--accent);font-size:18px">✓</span>' : ''}
             </div>
             <div style="font-size:13px;color:var(--text-muted);margin-top:6px">${escape((t.body || '').slice(0,140))}…</div>
           </div>
         `).join('')}
+        ${abMode ? `
+          <div style="font-size:12px;color:#f59e0b;font-weight:600;margin:12px 0 6px">B — вариант (выбери второй шаблон)</div>
+          ${tmpls.filter(t => t.id !== data.template_id).map(t => `
+            <div class="card" data-action="cw-pick-template-b" data-id="${t.id}" style="${data.template_id_b===t.id?'border:2px solid #f59e0b':''}">
+              <div class="card-row">
+                <div class="card-title">${escape(t.name)}</div>
+                ${data.template_id_b===t.id ? '<span style="color:#f59e0b;font-size:18px">✓</span>' : ''}
+              </div>
+              <div style="font-size:13px;color:var(--text-muted);margin-top:6px">${escape((t.body || '').slice(0,140))}…</div>
+            </div>
+          `).join('')}
+        ` : ''}
         <div style="display:flex;gap:6px;margin-top:8px">
           <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="2">Назад</button>
           <button class="btn" style="flex:1" data-action="cw-next" data-from="2">Далее</button>
         </div>
       </div>`;
+    }
     if (step === 3) {
       // Цепочка касаний — 5 follow-up'ов с фиксированными задержками
       const labels = ['Через 1 день', 'Через 2 дня', 'Через 3 дня', 'Через неделю', 'Через 2 недели'];
@@ -1148,11 +1177,15 @@ const screens = {
         ${display.length === 0 ? '<div class="empty"><div class="empty-title">Ничего не найдено</div></div>' :
           display.map(c => {
             const checked = selected.has(c.id);
+            const tagsHtml = (c.tags || []).slice(0, 4).map(t => `<span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:500;margin-right:3px">${escape(t)}</span>`).join('');
+            const snoozed = c.snoozed_until && new Date(c.snoozed_until) > new Date();
             return `
-            <div class="lead" data-action="${selectMode?'ib-toggle':'open-conv'}" data-id="${c.id}" data-conv-row="${c.id}" style="${checked?'background:rgba(37,99,235,0.10);outline:2px solid var(--accent)':''}">
+            <div class="lead" data-action="${selectMode?'ib-toggle':'open-conv'}" data-id="${c.id}" data-conv-row="${c.id}" style="${checked?'background:rgba(37,99,235,0.10);outline:2px solid var(--accent)':''}${snoozed?';opacity:.55':''}">
               ${selectMode ? `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 40px"><input type="checkbox" ${checked?'checked':''} style="width:22px;height:22px;pointer-events:none"></div>` : avatar(c.lead_tg_id, c.lead_name || c.lead_username)}
               <div class="lead-body">
-                <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}</div>
+                <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}${snoozed?' 💤':''}</div>
+                ${c.campaign_name ? `<div style="font-size:11px;color:var(--accent);margin-top:1px">✉ ${escape(c.campaign_name)}</div>` : ''}
+                ${tagsHtml ? `<div style="margin-top:3px">${tagsHtml}</div>` : ''}
                 <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)} · ${prettyTime(c.last_message_at)}</div>
               </div>
               <span class="lead-score ${c.lead_status==='Trial Activated'?'hot':c.lead_status==='Testnet'?'warm':'cold'}">${escape(c.lead_status || c.account_phone)}</span>
@@ -1161,7 +1194,8 @@ const screens = {
         }
         ${selectMode && selected.size > 0 ? `
           <div style="position:fixed;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom));z-index:30;padding:10px 16px;background:var(--bg);border-top:1px solid var(--border);max-width:540px;margin:0 auto;display:flex;gap:8px">
-            <button class="btn secondary" style="flex:1;color:#ef4444" data-action="ib-bulk-delete">🗑 Удалить ${selected.size}</button>
+            <button class="btn" style="flex:1" data-action="ib-bulk-reply">↩ Ответить ${selected.size}</button>
+            <button class="btn secondary" style="flex:1;color:#ef4444" data-action="ib-bulk-delete">🗑 ${selected.size}</button>
           </div>
         ` : ''}
       </div>`;
@@ -1193,6 +1227,7 @@ const screens = {
             <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')}</div>
           </div>
           <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" style="font-size:16px">📅</button>
+          <button class="icon-btn" data-action="conv-snooze" data-id="${st.conv_id}" title="Snooze (отложить)" style="font-size:16px">💤</button>
           <button class="icon-btn" data-action="conv-stoplist" data-tg="${st.lead_tg_id || ''}" title="В стоп-лист" style="font-size:16px">🚫</button>
           <button class="icon-btn" data-action="conv-delete" data-id="${st.conv_id}" title="Удалить переписку" style="font-size:18px;color:#ef4444">🗑</button>
         </div>
@@ -1212,6 +1247,13 @@ const screens = {
               </div>`;
           }).join('')}
         </div>
+        ${(window.QUICK_REPLIES || []).length ? `
+        <div style="display:flex;gap:6px;overflow-x:auto;padding:6px 8px 0;background:var(--bg);border-top:1px solid var(--border)">
+          ${window.QUICK_REPLIES.map((q, i) => `
+            <button class="stage-chip" data-action="qr-pick" data-idx="${i}" style="font-size:12px;flex:0 0 auto">${escape(q.slice(0, 30))}${q.length>30?'…':''}</button>
+          `).join('')}
+        </div>
+        ` : ''}
         <div class="conv-input">
           <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Файл" style="font-size:22px">📎</button>
           <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка" style="font-size:18px;color:var(--accent)">✨</button>
@@ -1676,6 +1718,18 @@ const screens = {
           <input id="prof-calendly" value="${escape(p.calendly_url||'')}" placeholder="https://calendly.com/yourname/30min"
                  style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
           <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Появится кнопкой 📅 в шапке любой переписки — отправит ссылку лиду в один клик.</div>
+        </div>
+        <div class="card">
+          <label style="font-size:12px;color:var(--text-muted)">Cooldown между сообщениями одному лиду (дни)</label>
+          <input id="prof-cooldown" type="number" min="0" max="365" value="${p.cooldown_days ?? 14}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Защита от дубликатов: если этому tg_id уже улетело сообщение из любой кампании за последние N дней — следующая попытка skip. <b>0 = выкл.</b></div>
+        </div>
+        <div class="card">
+          <label style="font-size:12px;color:var(--text-muted)">Quick replies (по одному в строке)</label>
+          <textarea id="prof-quick" rows="6" placeholder="ок, перезвоню в чт&#10;спасибо, изучу&#10;давай созвонимся завтра в 16:00&#10;отправил материалы, посмотри"
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape((p.quick_replies||[]).join('\n'))}</textarea>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Появятся чипсами над input в каждой переписке — клик = подставит в поле ввода.</div>
         </div>
         <button class="btn full" style="margin-top:8px" data-action="save-profile">Сохранить</button>
       </div>`;
@@ -2457,7 +2511,15 @@ async function handleAction(action, el) {
     case 'cw-pick-template': {
       const id = parseInt(el.dataset.id, 10);
       const w = screenState.campaign_wizard;
-      render('campaign_wizard', { ...w, data: { ...w.data, template_id: id } });
+      // Если это был template_id_b — сбрасываем
+      const fix = (w.data.template_id_b === id) ? { template_id_b: null } : {};
+      render('campaign_wizard', { ...w, data: { ...w.data, template_id: id, ...fix } });
+      break;
+    }
+    case 'cw-pick-template-b': {
+      const id = parseInt(el.dataset.id, 10);
+      const w = screenState.campaign_wizard;
+      render('campaign_wizard', { ...w, data: { ...w.data, template_id_b: id } });
       break;
     }
     case 'cw-toggle-acc': {
@@ -2513,7 +2575,9 @@ async function handleAction(action, el) {
       try {
         const c = await API.campaigns.create({
           name: w.data.name, list_id: w.data.list_id,
-          template_id: w.data.template_id, account_ids: w.data.account_ids,
+          template_id: w.data.template_id,
+          template_id_b: (w.data.ab_mode && w.data.template_id_b) ? w.data.template_id_b : null,
+          account_ids: w.data.account_ids,
           type: w.data.type || 'one_shot',
           filter_config: w.data.filter_config || null,
           followups: w.data.followups || [],
@@ -2617,8 +2681,47 @@ async function handleAction(action, el) {
     // Profile
     case 'save-profile': {
       const url = document.getElementById('prof-calendly').value.trim();
-      try { await API.profile.update({ calendly_url: url || null }); toast('✅ Сохранено'); loadProfile(); }
+      const cooldown = parseInt(document.getElementById('prof-cooldown')?.value || '14', 10);
+      const qrText = document.getElementById('prof-quick')?.value || '';
+      const quick_replies = qrText.split('\n').map(s => s.trim()).filter(Boolean);
+      try {
+        await API.profile.update({ calendly_url: url || null, cooldown_days: cooldown, quick_replies });
+        window.QUICK_REPLIES = quick_replies;
+        toast('✅ Сохранено'); loadProfile();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'qr-pick': {
+      const idx = parseInt(el.dataset.idx, 10);
+      const text = (window.QUICK_REPLIES || [])[idx] || '';
+      const inp = document.getElementById('reply-input');
+      if (inp) { inp.value = text; inp.focus(); }
+      break;
+    }
+    case 'conv-snooze': {
+      const cid = parseInt(el.dataset.id, 10);
+      const opts = ['до завтра', 'на 3 дня', 'на неделю', 'на 2 недели'];
+      const choice = prompt_(`Snooze на:\n1) ${opts[0]}\n2) ${opts[1]}\n3) ${opts[2]}\n4) ${opts[3]}\n\nВведи номер 1-4:`, '2');
+      if (!choice) return;
+      const days = ({1:1, 2:3, 3:7, 4:14})[parseInt(choice,10)] || 3;
+      const until = new Date(Date.now() + days*24*3600*1000).toISOString();
+      try { await API.inbox.snooze(cid, until); toast(`💤 На ${days} дн.`); loadInbox(); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'ib-bulk-reply': {
+      const ids = screenState.inbox?.selected || [];
+      if (!ids.length) return;
+      const text = prompt_(`Один и тот же текст в ${ids.length} переписок:`, '');
+      if (!text) return;
+      const yes = await confirm_(`Точно отправить «${text.slice(0,60)}…» в ${ids.length} чатов?`);
+      if (!yes) return;
+      try {
+        const r = await API.inbox.bulkReply(ids, text);
+        toast(`✅ Отправлено: ${r.sent}, ошибок: ${r.failed}`);
+        screenState.inbox = { ...screenState.inbox, select_mode: false, selected: [] };
+        loadInbox();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
 
@@ -2838,9 +2941,11 @@ $('#user-handle').textContent = ME.username ? '@' + ME.username : 'BitOK Workspa
 // Узнаём, админ ли (для показа пункта «Админка · идеи» в Ещё)
 API.me().then(r => {
   IS_ADMIN = !!r.is_admin;
-  // Если уже на экране More — перерендерим, чтобы появилась плашка админки
   if (currentScreen === 'more') render('more');
 }).catch(() => {});
+
+// Подгружаем quick replies в глобал — в conv-input они идут чипсами
+API.profile.get().then(p => { window.QUICK_REPLIES = p.quick_replies || []; }).catch(() => {});
 
 // Initial render
 loadDashboard();

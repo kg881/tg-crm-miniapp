@@ -49,6 +49,11 @@ const API = {
     suggest:   (cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/suggest_reply`),
     remove:    (cid)          => API.req('DELETE', `/api/inbox/conversations/${cid}`),
     bulkDelete:(ids)          => API.req('POST',   '/api/inbox/conversations/bulk_delete', { ids }),
+    snooze:    (cid, until)   => API.req('POST',   `/api/inbox/conversations/${cid}/snooze`, { until }),
+    unsnooze:  (cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/unsnooze`),
+    reclassify:(cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/reclassify`),
+    bulkReply: (ids, text)    => API.req('POST',   '/api/inbox/conversations/bulk_reply', { conv_ids: ids, text }),
+    listAll:   ()             => API.req('GET',    '/api/inbox/conversations?include_snoozed=true'),
   },
 
   lists: {
