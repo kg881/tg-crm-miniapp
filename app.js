@@ -834,7 +834,6 @@ const screens = {
       const aa = accs.filter(a=>(data.account_ids||[]).includes(a.id));
       const totalCap = aa.reduce((s,a)=>s+a.daily_limit,0);
       const days = totalCap ? Math.ceil((ll?.count||0) / totalCap) : '∞';
-      return `
       const fuCount = (data.followups || []).filter(f => (f.body || '').trim()).length;
       return `
       <div class="screen">
