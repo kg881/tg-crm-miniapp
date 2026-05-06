@@ -100,6 +100,42 @@ const API = {
 
   me: () => API.req('GET', '/api/me'),
 
+  profile: {
+    get:    ()       => API.req('GET',   '/api/profile'),
+    update: (data)   => API.req('PATCH', '/api/profile', data),
+  },
+
+  stoplist: {
+    list:   ()                                  => API.req('GET',  '/api/stoplist'),
+    set:    ({lead_id, tg_id, reason, on=true}) => API.req('POST', '/api/stoplist', { lead_id, tg_id, reason, on }),
+  },
+
+  deals: {
+    list:   ()         => API.req('GET',    '/api/deals'),
+    create: (data)     => API.req('POST',   '/api/deals', data),
+    update: (id, data) => API.req('PATCH',  `/api/deals/${id}`, data),
+    remove: (id)       => API.req('DELETE', `/api/deals/${id}`),
+  },
+
+  tasks: {
+    list:   (due='open') => API.req('GET',    `/api/tasks?due=${due}`),
+    create: (data)       => API.req('POST',   '/api/tasks', data),
+    update: (id, data)   => API.req('PATCH',  `/api/tasks/${id}`, data),
+    remove: (id)         => API.req('DELETE', `/api/tasks/${id}`),
+  },
+
+  kb: {
+    list:   ()           => API.req('GET',    '/api/kb'),
+    create: (data)       => API.req('POST',   '/api/kb', data),
+    update: (id, data)   => API.req('PATCH',  `/api/kb/${id}`, data),
+    remove: (id)         => API.req('DELETE', `/api/kb/${id}`),
+  },
+
+  analytics: {
+    templates: () => API.req('GET', '/api/analytics/templates'),
+    accounts:  () => API.req('GET', '/api/analytics/accounts'),
+  },
+
   ideas: {
     submit:    (text)         => API.req('POST',   '/api/ideas', { text }),
     mine:      ()             => API.req('GET',    '/api/ideas/mine'),

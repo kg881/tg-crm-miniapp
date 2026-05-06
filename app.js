@@ -30,6 +30,19 @@ function prettyTime(iso) {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+// Парсит "сегодня"/"завтра"/"+3д"/"YYYY-MM-DD" → ISO date string. null если не понял.
+function parseDueDate(s) {
+  if (!s) return null;
+  s = s.trim().toLowerCase();
+  const now = new Date(); now.setHours(18, 0, 0, 0);
+  if (s === 'сегодня' || s === 'today') return now.toISOString();
+  if (s === 'завтра' || s === 'tomorrow') { now.setDate(now.getDate()+1); return now.toISOString(); }
+  const m = s.match(/^[+]?(\d+)\s*[дd]/);
+  if (m) { now.setDate(now.getDate() + parseInt(m[1], 10)); return now.toISOString(); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T18:00:00').toISOString();
+  return null;
+}
+
 // Стабильный цвет по hash имени (как в Telegram)
 const _palette = ['#e25555','#f5a623','#16a34a','#2563eb','#7c3aed','#06b6d4','#ec4899','#f59e0b'];
 function colorFor(name) {
@@ -283,8 +296,29 @@ const screens = {
           </div>
         `).join('')}
 
+        ${st.tasks && st.tasks.length ? `
+          <div class="section-title">📋 СЕГОДНЯ НАДО (${st.tasks.length})</div>
+          ${st.tasks.slice(0, 5).map(t => {
+            const overdue = new Date(t.due_date) < new Date(new Date().toDateString());
+            return `
+            <div class="card" style="${overdue?'background:#fee2e2':''}">
+              <div class="card-row">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:500;font-size:14px">${escape(t.text)}</div>
+                  <div style="font-size:12px;color:${overdue?'#b91c1c':'var(--text-muted)'};margin-top:2px">
+                    ${overdue?'⚠ просрочена':'до'} ${prettyTime(t.due_date)}${t.lead_name?' · '+escape(t.lead_name):''}
+                  </div>
+                </div>
+                <button class="btn secondary" style="padding:4px 10px;font-size:12px" data-action="task-done" data-id="${t.id}">✓</button>
+              </div>
+            </div>
+          `;}).join('')}
+          ${st.tasks.length > 5 ? `<button class="btn secondary full" style="margin-top:6px" data-action="goto-tasks">Все задачи (${st.tasks.length})</button>` : ''}
+        ` : ''}
+
         <div class="section-title">Быстрые действия</div>
         <button class="btn full" data-action="run-briefing">☀️ Прислать брифинг в чат с ботом</button>
+        <button class="btn full secondary" style="margin-top:6px" data-action="goto-tasks">📋 Задачи</button>
         ${accountsFabHTML()}
       </div>
     `;
@@ -345,6 +379,27 @@ const screens = {
       <div class="list-item" data-action="find-groups">
         <div class="list-ico">⌕</div>
         <div class="list-text"><div class="list-title">Поиск чатов</div><div class="list-sub">По ключевым словам в сообщениях</div></div>
+        <div class="list-arrow">›</div>
+      </div>
+      <div class="section-title">CRM</div>
+      <div class="list-item" data-action="goto-deals">
+        <div class="list-ico">💼</div>
+        <div class="list-text"><div class="list-title">Сделки</div><div class="list-sub">Pipeline по лидам с values и close-date</div></div>
+        <div class="list-arrow">›</div>
+      </div>
+      <div class="list-item" data-action="goto-kb">
+        <div class="list-ico">🧠</div>
+        <div class="list-text"><div class="list-title">База знаний</div><div class="list-sub">Canned-ответы для AI: цена, безопасность, конкуренты</div></div>
+        <div class="list-arrow">›</div>
+      </div>
+      <div class="list-item" data-action="goto-analytics">
+        <div class="list-ico">📊</div>
+        <div class="list-text"><div class="list-title">Аналитика</div><div class="list-sub">Reply rate по шаблонам и аккаунтам</div></div>
+        <div class="list-arrow">›</div>
+      </div>
+      <div class="list-item" data-action="goto-stoplist">
+        <div class="list-ico">🚫</div>
+        <div class="list-text"><div class="list-title">Стоп-лист</div><div class="list-sub">Лиды, которым НЕ слать (opt-out)</div></div>
         <div class="list-arrow">›</div>
       </div>
     </div>
@@ -1137,6 +1192,8 @@ const screens = {
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
             <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')}</div>
           </div>
+          <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" style="font-size:16px">📅</button>
+          <button class="icon-btn" data-action="conv-stoplist" data-tg="${st.lead_tg_id || ''}" title="В стоп-лист" style="font-size:16px">🚫</button>
           <button class="icon-btn" data-action="conv-delete" data-id="${st.conv_id}" title="Удалить переписку" style="font-size:18px;color:#ef4444">🗑</button>
         </div>
         <div id="msg-list" class="conv-body">
@@ -1366,14 +1423,273 @@ const screens = {
     </div>`;
   },
 
+  // ---------- DEALS ----------
+  deals: (st) => {
+    const deals = st?.deals ?? [];
+    const STAGES = ['Discovery','Demo','Trial','Proposal','Negotiation','Won','Lost'];
+    const counts = {}; deals.forEach(d => counts[d.stage] = (counts[d.stage]||0)+1);
+    const totalValue = deals.filter(d => !['Won','Lost'].includes(d.stage)).reduce((s,d)=>s+(d.value||0),0);
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="new-deal">+</button></div>
+        ${deals.length === 0 ? `
+          <div class="empty"><div class="empty-ico">💼</div>
+            <div class="empty-title">Нет сделок</div>
+            <div>Сделка = лид + value + стейдж + close-date. Сюда складывай тех, с кем уже идёт реальный разговор о покупке.</div>
+            <button class="btn" style="margin-top:16px" data-action="new-deal">Создать сделку</button>
+          </div>
+        ` : `
+          <div class="card" style="background:linear-gradient(135deg,#dbeafe,#e0e7ff)">
+            <div style="font-size:13px;color:#1e3a8a">💰 Pipeline (без Won/Lost): <b>$${totalValue.toLocaleString('en-US')}</b></div>
+          </div>
+          <div class="stage-strip">
+            ${STAGES.filter(s => counts[s]).map(s => `<div class="stage-chip">${escape(s)} · ${counts[s]}</div>`).join('')}
+          </div>
+          ${deals.map(d => `
+            <div class="card" data-action="edit-deal" data-id="${d.id}">
+              <div class="card-row">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:14px">${escape(d.name)}</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
+                    ${escape(d.lead_name || d.lead_username || `lead #${d.lead_id}`)}${d.close_date?' · close '+new Date(d.close_date).toISOString().slice(0,10):''}
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-weight:600;color:var(--accent)">$${(d.value||0).toLocaleString('en-US')}</div>
+                  <span class="lead-score ${d.stage==='Won'?'cold':d.stage==='Lost'?'hot':'warm'}" style="font-size:11px;margin-top:4px;display:inline-block">${escape(d.stage)}</span>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        `}
+      </div>`;
+  },
+
+  deal_edit: (st) => {
+    const d = st?.deal || {};
+    const leadOptions = st?.leads || [];   // если новая сделка — выбор из списка лидов
+    const STAGES = ['Discovery','Demo','Trial','Proposal','Negotiation','Won','Lost'];
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">${d.id?'Редактировать сделку':'Новая сделка'}</h2></div>
+        <div class="card">
+          ${!d.id ? `
+            <label style="font-size:12px;color:var(--text-muted)">Лид</label>
+            <select id="d-lead" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+              ${leadOptions.map(l => `<option value="${l.id}">${escape((l.full_name||l.username||'?'))} ${l.username?'@'+escape(l.username):''}</option>`).join('')}
+            </select>
+          ` : `<div style="font-size:13px;color:var(--text-muted)">Лид: <b style="color:var(--text)">${escape(d.lead_name || d.lead_username || '')}</b></div>`}
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Название</label>
+          <input id="d-name" value="${escape(d.name||'')}" placeholder="Напр.: BitOK API → CryptoExchange-X"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Стейдж</label>
+          <select id="d-stage" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+            ${STAGES.map(s => `<option ${d.stage===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Value (USD)</label>
+          <input id="d-value" type="number" min="0" value="${d.value||0}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Close date</label>
+          <input id="d-close" type="date" value="${d.close_date?new Date(d.close_date).toISOString().slice(0,10):''}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Заметка</label>
+          <textarea id="d-note" rows="4" placeholder="Контактное лицо, decision criteria, конкуренты..."
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(d.note||'')}</textarea>
+        </div>
+        <button class="btn full" style="margin-top:8px" data-action="save-deal" data-id="${d.id||0}">Сохранить</button>
+        ${d.id?`<button class="btn full secondary" style="margin-top:8px;color:#ef4444" data-action="delete-deal" data-id="${d.id}">Удалить</button>`:''}
+      </div>`;
+  },
+
+  // ---------- TASKS ----------
+  tasks: (st) => {
+    const tasks = st?.tasks ?? [];
+    const overdue = tasks.filter(t => !t.done && new Date(t.due_date) < new Date());
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Задачи</h2><button class="add-btn" data-action="new-task">+</button></div>
+        ${overdue.length ? `<div class="card" style="background:#fee2e2;color:#b91c1c;font-size:13px">⚠ Просрочено: ${overdue.length}</div>` : ''}
+        ${tasks.length === 0 ? `
+          <div class="empty"><div class="empty-ico">📋</div>
+            <div class="empty-title">Нет открытых задач</div>
+            <button class="btn" style="margin-top:16px" data-action="new-task">Добавить задачу</button>
+          </div>
+        ` : tasks.map(t => {
+          const od = !t.done && new Date(t.due_date) < new Date(new Date().toDateString());
+          return `
+          <div class="card" style="${od?'background:#fee2e2':''}">
+            <div class="card-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:500;font-size:14px;${t.done?'text-decoration:line-through;color:var(--text-muted)':''}">${escape(t.text)}</div>
+                <div style="font-size:12px;color:${od?'#b91c1c':'var(--text-muted)'};margin-top:2px">
+                  ${od?'⚠ просрочено':'до'} ${prettyTime(t.due_date)}${t.lead_name?' · '+escape(t.lead_name):''}
+                </div>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn secondary" style="padding:4px 10px;font-size:12px" data-action="task-toggle" data-id="${t.id}" data-done="${t.done?1:0}">${t.done?'↺':'✓'}</button>
+                <button class="btn secondary" style="padding:4px 8px;font-size:12px;color:#ef4444" data-action="task-delete" data-id="${t.id}">🗑</button>
+              </div>
+            </div>
+          </div>
+        `;}).join('')}
+      </div>`;
+  },
+
+  // ---------- KNOWLEDGE BASE ----------
+  kb: (st) => {
+    const items = st?.items ?? [];
+    const INTENTS = ['price','security','integration','competitor','timing','demo','compliance','other'];
+    const INTENT_LBL = { price:'💰 Цена', security:'🔒 Безопасность', integration:'🔌 Интеграция', competitor:'⚔ Конкуренты', timing:'⏱ Сроки', demo:'🎬 Демо', compliance:'⚖ Compliance', other:'📌 Другое'};
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>База знаний</h2><button class="add-btn" data-action="new-kb">+</button></div>
+        <div class="card" style="background:#dbeafe;color:#1e3a8a;font-size:12px">
+          💡 Когда лид что-то спрашивает (цена, безопасность, конкуренты), AI auto-reply подсмотрит сюда и не будет выдумывать.
+        </div>
+        ${items.length === 0 ? `
+          <div class="empty"><div class="empty-ico">🧠</div>
+            <div class="empty-title">База пуста</div>
+            <div>Добавь типовые вопросы и canned-ответы. AI будет использовать их вместо того чтобы выдумывать.</div>
+            <button class="btn" style="margin-top:16px" data-action="new-kb">Добавить запись</button>
+          </div>
+        ` : items.map(k => `
+          <div class="card" data-action="edit-kb" data-id="${k.id}">
+            <div class="card-row">
+              <div style="font-weight:600;font-size:13px">${INTENT_LBL[k.intent]||k.intent}</div>
+            </div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:6px"><b>Q:</b> ${escape(k.question.slice(0,120))}${k.question.length>120?'…':''}</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px"><b>A:</b> ${escape(k.answer.slice(0,160))}${k.answer.length>160?'…':''}</div>
+          </div>
+        `).join('')}
+      </div>`;
+  },
+
+  kb_edit: (st) => {
+    const k = st?.kb || {};
+    const INTENTS = ['price','security','integration','competitor','timing','demo','compliance','other'];
+    return `
+      <div class="screen">
+        <div class="head-row"><h2 style="font-size:18px">${k.id?'Редактировать запись':'Новая запись KB'}</h2></div>
+        <div class="card">
+          <label style="font-size:12px;color:var(--text-muted)">Тип возражения / темы</label>
+          <select id="kb-intent" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+            ${INTENTS.map(i => `<option ${k.intent===i?'selected':''}>${i}</option>`).join('')}
+          </select>
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Типичный вопрос лида</label>
+          <textarea id="kb-q" rows="3" placeholder="Напр.: Сколько стоит ваш сервис?"
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(k.question||'')}</textarea>
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Готовый ответ</label>
+          <textarea id="kb-a" rows="6" placeholder="У нас 3 тарифа: Starter $99/мес, Pro $499/мес и Enterprise..."
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(k.answer||'')}</textarea>
+        </div>
+        <button class="btn full" style="margin-top:8px" data-action="save-kb" data-id="${k.id||0}">Сохранить</button>
+        ${k.id?`<button class="btn full secondary" style="margin-top:8px;color:#ef4444" data-action="delete-kb" data-id="${k.id}">Удалить</button>`:''}
+      </div>`;
+  },
+
+  // ---------- ANALYTICS ----------
+  analytics: (st) => {
+    const tmpls = st?.templates ?? [];
+    const accs = st?.accounts ?? [];
+    const totalSent = tmpls.reduce((s,t)=>s+t.sent,0);
+    const totalReplied = tmpls.reduce((s,t)=>s+t.replied,0);
+    const overall = totalSent ? (totalReplied/totalSent*100).toFixed(1) : '0';
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Аналитика</h2></div>
+        <div class="stats-grid">
+          <div class="stat"><div class="stat-label">Всего отправлено</div><div class="stat-value">${totalSent}</div></div>
+          <div class="stat"><div class="stat-label">Ответили</div><div class="stat-value">${totalReplied}</div></div>
+          <div class="stat" style="grid-column:span 2"><div class="stat-label">Общий reply rate</div><div class="stat-value">${overall}%</div></div>
+        </div>
+        <div class="section-title">По шаблонам</div>
+        ${tmpls.length === 0 ? '<div class="empty"><div>Нет данных</div></div>' : tmpls.map(t => `
+          <div class="card">
+            <div class="card-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:14px">${escape(t.name)}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${t.campaigns} кампаний · ${t.sent} отправлено</div>
+              </div>
+              <span class="lead-score ${t.reply_rate>=10?'hot':t.reply_rate>=3?'warm':'cold'}">${t.reply_rate}%</span>
+            </div>
+          </div>
+        `).join('')}
+        <div class="section-title">По аккаунтам</div>
+        ${accs.length === 0 ? '<div class="empty"><div>Нет данных</div></div>' : accs.map(a => `
+          <div class="card">
+            <div class="card-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:14px">${escape(a.first_name||a.phone)}${a.username?' @'+escape(a.username):''}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${escape(a.phone)} · ${a.sent} отправлено · ${a.replied} ответов</div>
+              </div>
+              <span class="lead-score ${a.reply_rate>=10?'hot':a.reply_rate>=3?'warm':'cold'}">${a.reply_rate}%</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+  },
+
+  // ---------- STOP-LIST ----------
+  stoplist: (st) => {
+    const items = st?.items ?? [];
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Стоп-лист</h2></div>
+        <div class="card" style="background:#dbeafe;color:#1e3a8a;font-size:12px">
+          💡 Этим лидам кампании НЕ шлют сообщения. Авто-добавление при детекции «отпиши/не пиши/спам/нахуй» в incoming. Можно добавить вручную из Inbox-чата (🚫).
+        </div>
+        ${items.length === 0 ? `
+          <div class="empty"><div class="empty-ico">🚫</div>
+            <div class="empty-title">Стоп-лист пуст</div>
+          </div>
+        ` : items.map(l => `
+          <div class="card">
+            <div class="card-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:14px">${escape(l.full_name || l.username || `lead #${l.id}`)}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${l.username?'@'+escape(l.username):''} · причина: <b>${escape(l.reason||'manual')}</b></div>
+              </div>
+              <button class="btn secondary" style="padding:4px 10px;font-size:12px" data-action="dnc-remove" data-id="${l.id}">↺ Снять</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+  },
+
+  // ---------- PROFILE ----------
+  profile: (st) => {
+    const p = st?.profile || {};
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Профиль</h2></div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="avatar blue" style="width:48px;height:48px;font-size:18px">${initials(p.first_name||p.username)}</div>
+            <div>
+              <div style="font-weight:600;font-size:16px">${escape(p.first_name||'')}</div>
+              <div style="font-size:13px;color:var(--text-muted)">@${escape(p.username||'-')}</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <label style="font-size:12px;color:var(--text-muted)">Calendly URL</label>
+          <input id="prof-calendly" value="${escape(p.calendly_url||'')}" placeholder="https://calendly.com/yourname/30min"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Появится кнопкой 📅 в шапке любой переписки — отправит ссылку лиду в один клик.</div>
+        </div>
+        <button class="btn full" style="margin-top:8px" data-action="save-profile">Сохранить</button>
+      </div>`;
+  },
+
   // ---------- MORE ----------
   more: () => `
     <div class="screen">
       <div class="head-row"><h2>Ещё</h2></div>
       <div class="section-title">Аккаунт</div>
-      <div class="list-item">
+      <div class="list-item" data-action="goto-profile">
         <div class="list-ico">⚇</div>
-        <div class="list-text"><div class="list-title">@${escape(ME.username || 'без юзернейма')}</div><div class="list-sub">Workspace: BitOK · Plan: Pro</div></div>
+        <div class="list-text"><div class="list-title">@${escape(ME.username || 'без юзернейма')}</div><div class="list-sub">Профиль · Calendly-ссылка</div></div>
+        <div class="list-arrow">›</div>
       </div>
       <div class="section-title">AI</div>
       <div class="list-item" data-action="goto-templates">
@@ -1501,10 +1817,13 @@ async function loadSearchTool() {
 
 async function loadDashboard() {
   try {
-    const data = await API.dashboard.get();
-    render('dashboard', { data });
+    const [data, tasks] = await Promise.all([
+      API.dashboard.get(),
+      API.tasks.list('today').catch(() => []),
+    ]);
+    render('dashboard', { data, tasks });
   } catch (e) {
-    render('dashboard', { data: null });
+    render('dashboard', { data: null, tasks: [] });
     toast(`Не удалось загрузить дашборд: ${e.message}`);
   }
 }
@@ -1551,6 +1870,7 @@ async function openConv(cid) {
     const conv = (screenState.inbox?.conversations || []).find(c => c.id === cid);
     render('conv', {
       conv_id: cid, messages,
+      lead_tg_id: conv?.lead_tg_id || null,
       title: conv?.lead_name || conv?.lead_username || `Чат #${cid}`,
       subtitle: conv?.account_phone ? `через ${conv.account_phone}` : '',
     });
@@ -1559,6 +1879,34 @@ async function openConv(cid) {
       if (ml) ml.scrollTop = ml.scrollHeight;
     });
   } catch (e) { toast(`Ошибка: ${e.message}`); }
+}
+
+// ===== Loaders: deals/tasks/kb/analytics/stoplist/profile =====
+async function loadDeals() {
+  try { render('deals', { deals: await API.deals.list() }); }
+  catch (e) { render('deals', { deals: [] }); toast(`Ошибка: ${e.message}`); }
+}
+async function loadTasks() {
+  try { render('tasks', { tasks: await API.tasks.list('open') }); }
+  catch (e) { render('tasks', { tasks: [] }); toast(`Ошибка: ${e.message}`); }
+}
+async function loadKb() {
+  try { render('kb', { items: await API.kb.list() }); }
+  catch (e) { render('kb', { items: [] }); toast(`Ошибка: ${e.message}`); }
+}
+async function loadAnalytics() {
+  try {
+    const [templates, accounts] = await Promise.all([API.analytics.templates(), API.analytics.accounts()]);
+    render('analytics', { templates, accounts });
+  } catch (e) { render('analytics', { templates: [], accounts: [] }); toast(`Ошибка: ${e.message}`); }
+}
+async function loadStoplist() {
+  try { render('stoplist', { items: await API.stoplist.list() }); }
+  catch (e) { render('stoplist', { items: [] }); toast(`Ошибка: ${e.message}`); }
+}
+async function loadProfile() {
+  try { render('profile', { profile: await API.profile.get() }); }
+  catch (e) { render('profile', { profile: {} }); toast(`Ошибка: ${e.message}`); }
 }
 
 // ===== Loaders for new screens =====
@@ -2255,6 +2603,170 @@ async function handleAction(action, el) {
         out.innerHTML = `<div class="card">✅ Совпадений: ${r.matched_messages}, уникальных авторов: ${r.matched_users}<br>Список #${r.list_id} создан.</div>`;
         setTimeout(() => loadLists(), 1000);
       } catch (e) { out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}</div>`; }
+      break;
+    }
+
+    // ===== CRM new actions =====
+    case 'goto-deals':     loadDeals(); break;
+    case 'goto-tasks':     loadTasks(); break;
+    case 'goto-kb':        loadKb(); break;
+    case 'goto-analytics': loadAnalytics(); break;
+    case 'goto-stoplist':  loadStoplist(); break;
+    case 'goto-profile':   loadProfile(); break;
+
+    // Profile
+    case 'save-profile': {
+      const url = document.getElementById('prof-calendly').value.trim();
+      try { await API.profile.update({ calendly_url: url || null }); toast('✅ Сохранено'); loadProfile(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // Tasks
+    case 'new-task': {
+      const text = prompt_('Что сделать?', '');
+      if (!text) return;
+      const when = prompt_('Когда (дата YYYY-MM-DD или сегодня/завтра/+3д):', 'завтра');
+      const due = parseDueDate(when);
+      if (!due) { toast('Не понял дату'); return; }
+      try { await API.tasks.create({ text, due_date: due }); toast('✅ Задача создана'); loadTasks(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'task-toggle': {
+      const id = parseInt(el.dataset.id, 10);
+      const done = el.dataset.done !== '1';
+      try { await API.tasks.update(id, { done }); loadTasks(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'task-done': {
+      const id = parseInt(el.dataset.id, 10);
+      try { await API.tasks.update(id, { done: true }); loadDashboard(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'task-delete': {
+      const id = parseInt(el.dataset.id, 10);
+      const yes = await confirm_('Удалить задачу?');
+      if (!yes) return;
+      try { await API.tasks.remove(id); loadTasks(); } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // Deals
+    case 'new-deal': {
+      // Загрузим списки лидов чтобы показать селектор
+      try {
+        const lists = await API.lists.list();
+        if (!lists.length) { toast('Сначала создай хотя бы один список лидов'); return; }
+        // Берём всех лидов из всех списков
+        const allLeads = [];
+        for (const l of lists) {
+          const ls = await API.lists.leads(l.id).catch(() => []);
+          ls.forEach(x => allLeads.push(x));
+        }
+        if (!allLeads.length) { toast('Нет лидов чтобы привязать'); return; }
+        render('deal_edit', { deal: {}, leads: allLeads });
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'edit-deal': {
+      const id = parseInt(el.dataset.id, 10);
+      const deal = (screenState.deals?.deals || []).find(d => d.id === id);
+      if (deal) render('deal_edit', { deal });
+      break;
+    }
+    case 'save-deal': {
+      const id = parseInt(el.dataset.id, 10);
+      const data = {
+        name: document.getElementById('d-name').value.trim(),
+        stage: document.getElementById('d-stage').value,
+        value: parseInt(document.getElementById('d-value').value || '0', 10),
+        close_date: document.getElementById('d-close').value ? new Date(document.getElementById('d-close').value).toISOString() : null,
+        note: document.getElementById('d-note').value.trim() || null,
+      };
+      if (!data.name) { toast('Название обязательно'); return; }
+      try {
+        if (id) {
+          await API.deals.update(id, data);
+        } else {
+          data.lead_id = parseInt(document.getElementById('d-lead').value, 10);
+          await API.deals.create(data);
+        }
+        toast('✅ Сохранено'); loadDeals();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'delete-deal': {
+      const id = parseInt(el.dataset.id, 10);
+      const yes = await confirm_('Удалить сделку?');
+      if (!yes) return;
+      try { await API.deals.remove(id); loadDeals(); } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // KB
+    case 'new-kb':  render('kb_edit', { kb: {} }); break;
+    case 'edit-kb': {
+      const id = parseInt(el.dataset.id, 10);
+      const kb = (screenState.kb?.items || []).find(k => k.id === id);
+      if (kb) render('kb_edit', { kb });
+      break;
+    }
+    case 'save-kb': {
+      const id = parseInt(el.dataset.id, 10);
+      const data = {
+        intent: document.getElementById('kb-intent').value,
+        question: document.getElementById('kb-q').value.trim(),
+        answer: document.getElementById('kb-a').value.trim(),
+      };
+      if (!data.question || !data.answer) { toast('Вопрос и ответ обязательны'); return; }
+      try {
+        if (id) await API.kb.update(id, data);
+        else    await API.kb.create(data);
+        toast('✅ Сохранено'); loadKb();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'delete-kb': {
+      const id = parseInt(el.dataset.id, 10);
+      const yes = await confirm_('Удалить запись?');
+      if (!yes) return;
+      try { await API.kb.remove(id); loadKb(); } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // Stop-list
+    case 'conv-stoplist': {
+      const tg_id = parseInt(el.dataset.tg, 10);
+      if (!tg_id) { toast('Не нашёл TG ID лида'); return; }
+      const yes = await confirm_('Добавить лида в стоп-лист? Кампании больше НЕ будут ему слать.');
+      if (!yes) return;
+      try { await API.stoplist.set({ tg_id, reason: 'manual', on: true }); toast('🚫 В стоп-листе'); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'dnc-remove': {
+      const id = parseInt(el.dataset.id, 10);
+      try { await API.stoplist.set({ lead_id: id, on: false }); loadStoplist(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+
+    // Calendly quick-send
+    case 'conv-calendly': {
+      const cid = parseInt(el.dataset.id, 10);
+      try {
+        const p = await API.profile.get();
+        if (!p.calendly_url) {
+          toast('Сначала задай Calendly-ссылку в Ещё → Профиль');
+          return;
+        }
+        const text = `Давай созвонимся 15 минут. Выбери удобный слот: ${p.calendly_url}`;
+        await API.inbox.reply(cid, text);
+        toast('📅 Calendly-ссылка отправлена'); openConv(cid);
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
 
