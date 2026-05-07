@@ -759,7 +759,8 @@ const screens = {
               }
               <button class="btn secondary" style="flex:1;padding:8px" data-action="open-campaign" data-id="${c.id}">📊</button>
               <button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-clone" data-id="${c.id}" title="Клонировать">🔁</button>
-              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹</button>
+              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop" title="Стоп">⏹</button>
+              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-delete" data-id="${c.id}" data-name="${escape(c.name)}" title="Удалить">🗑</button>
             </div>
           </div>`;
         }).join('')}
