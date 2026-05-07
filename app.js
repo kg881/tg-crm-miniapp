@@ -112,6 +112,9 @@ const openTgUser = (uname) => {
 let currentScreen = 'dashboard';
 let screenState = {};
 let IS_ADMIN = false;
+const navStack = [];
+const MAIN_TABS = new Set(['dashboard','outreach','inbox','more']);
+let _navBack = false;
 let _poll = null;
 function stopPoll() { if (_poll) { clearInterval(_poll); _poll = null; } }
 function startPoll(fn, ms) { stopPoll(); _poll = setInterval(fn, ms); }
@@ -568,6 +571,7 @@ const screens = {
             }
             <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹ Стоп</button>
           </div>
+          <button class="btn secondary full" style="margin-top:8px;background:#fee2e2;color:#991b1b;border-color:#fecaca" data-action="campaign-delete" data-id="${c.id}" data-name="${escape(c.name)}">🗑 Удалить кампанию</button>
         </div>
 
         <div class="stage-strip">
@@ -1799,6 +1803,16 @@ const screens = {
 
 // ===== Render =====
 function render(name, state = {}) {
+  const prev = currentScreen;
+  if (!_navBack && prev && prev !== name) {
+    if (MAIN_TABS.has(name)) {
+      navStack.length = 0;
+    } else {
+      navStack.push({ name: prev, state: { ...(screenState[prev] || {}) } });
+      if (navStack.length > 50) navStack.shift();
+    }
+  }
+  _navBack = false;
   currentScreen = name;
   screenState[name] = { ...screenState[name], ...state };
   $('#screen-root').innerHTML = screens[name](screenState[name]);
@@ -1806,7 +1820,7 @@ function render(name, state = {}) {
     t.classList.toggle('active', t.dataset.screen === name);
   });
   if (tg) {
-    const isMain = ['dashboard','outreach','inbox','more'].includes(name);
+    const isMain = MAIN_TABS.has(name);
     if (isMain) tg.BackButton.hide(); else tg.BackButton.show();
   }
 }
@@ -2637,6 +2651,17 @@ async function handleAction(action, el) {
       catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
+    case 'campaign-delete': {
+      const id = parseInt(el.dataset.id, 10);
+      const name = el.dataset.name || 'кампанию';
+      if (!confirm(`Удалить «${name}»? Это снесёт outbox и follow-ups этой кампании.`)) return;
+      try {
+        await API.campaigns.remove(id);
+        toast('🗑 Удалено');
+        loadCampaigns();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
     case 'cw-test-send': {
       const w = screenState.campaign_wizard;
       const target = ME.username ? ('@' + ME.username) : (ME.id ? String(ME.id) : '');
@@ -2984,7 +3009,15 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-if (tg) tg.BackButton.onClick(() => render('dashboard'));
+if (tg) tg.BackButton.onClick(() => {
+  if (navStack.length) {
+    const prev = navStack.pop();
+    _navBack = true;
+    render(prev.name, prev.state);
+  } else {
+    render('dashboard');
+  }
+});
 $('#user-handle').textContent = ME.username ? '@' + ME.username : 'BitOK Workspace';
 
 // Узнаём, админ ли (для показа пункта «Админка · идеи» в Ещё)

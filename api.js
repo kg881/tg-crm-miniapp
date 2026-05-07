@@ -82,6 +82,7 @@ const API = {
     list:      ()             => API.req('GET',    '/api/campaigns'),
     create:    (data)         => API.req('POST',   '/api/campaigns', data),
     control:   (id, action)   => API.req('POST',   `/api/campaigns/${id}/${action}`),
+    remove:    (id)           => API.req('DELETE', `/api/campaigns/${id}`),
     outbox:    (id, status)   => API.req('GET',    `/api/campaigns/${id}/outbox${status?`?status=${status}`:''}`),
     followups: (id)           => API.req('GET',    `/api/campaigns/${id}/followups`),
     setFollowups: (id, list)  => API.req('PUT',    `/api/campaigns/${id}/followups`, { followups: list }),
