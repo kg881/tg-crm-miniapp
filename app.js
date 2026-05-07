@@ -3010,7 +3010,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-if (tg) tg.BackButton.onClick(() => {
+function goBack() {
   if (navStack.length) {
     const prev = navStack.pop();
     _navBack = true;
@@ -3018,7 +3018,13 @@ if (tg) tg.BackButton.onClick(() => {
   } else {
     render('dashboard');
   }
-});
+}
+if (tg) {
+  // BackButton.onClick — no-op в version < 6.1 (баг старых клиентов TG).
+  // onEvent регистрирует callback всегда, независимо от версии.
+  tg.onEvent('backButtonClicked', goBack);
+  tg.BackButton.onClick(goBack);   // дублируем — на всякий случай для новых версий
+}
 $('#user-handle').textContent = ME.username ? '@' + ME.username : 'BitOK Workspace';
 
 // Узнаём, админ ли (для показа пункта «Админка · идеи» в Ещё)
