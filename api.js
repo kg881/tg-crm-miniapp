@@ -53,6 +53,7 @@ const API = {
     unsnooze:  (cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/unsnooze`),
     reclassify:(cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/reclassify`),
     bulkReply: (ids, text)    => API.req('POST',   '/api/inbox/conversations/bulk_reply', { conv_ids: ids, text }),
+    setBotMode:(cid, mode)    => API.req('POST',   `/api/inbox/conversations/${cid}/bot_mode`, { mode }),
     listAll:   ()             => API.req('GET',    '/api/inbox/conversations?include_snoozed=true'),
   },
 

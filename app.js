@@ -516,7 +516,19 @@ const screens = {
           <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Промпт для AI (правила ответа)</label>
           <textarea id="ad-autoprompt" rows="6" placeholder="Ты sales BitOK..."
                     style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(a.auto_reply_prompt || 'Ты sales BitOK (AML/KYT для крипто-бизнесов). Отвечай коротко, на ты, по делу. Если спрашивают про цену — предложи созвон 15 мин. Если возражения — отрабатывай мягко. Без эмодзи и воды.')}</textarea>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">⚠️ Нужен ANTHROPIC_API_KEY в .env</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+            <div>
+              <label style="font-size:11px;color:var(--text-muted)">Макс ответов в одном треде</label>
+              <input id="ad-bot-max" type="number" min="1" max="50" value="${a.bot_max_per_thread || 5}"
+                     style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;margin-top:2px">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text-muted)">Лимит ответов в час (с этого акка)</label>
+              <input id="ad-bot-rate" type="number" min="1" max="200" value="${a.bot_rate_limit_hour || 10}"
+                     style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;margin-top:2px">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">⚙️ После лимита в треде — бот молчит, эскалация в @crm_outreach_bot. Stop-words (договор/контракт/legal) → пауза мгновенно. Negative/objection → пауза. Booking-фразы (давай созвон/демо) → шлёт твою Calendly без LLM.</div>
         </div>
         ${a.status === 'needs_reauth' ? `
           <div class="card" style="background:#fee2e2;color:#991b1b;font-size:13px;margin-bottom:8px">
@@ -1224,7 +1236,7 @@ const screens = {
           <div class="avatar blue" style="width:36px;height:36px;font-size:14px">${initials(title)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')} · <span data-action="conv-bot-mode" data-id="${st.conv_id}" data-current="${st.bot_mode||'auto'}" style="cursor:pointer;color:${(st.bot_mode==='paused')?'#ef4444':(st.bot_mode==='human_only'?'#f59e0b':'#16a34a')};font-weight:500">${st.bot_mode==='paused'?'⏸ pause':st.bot_mode==='human_only'?'👤 human':'🤖 auto'}</span></div>
           </div>
           <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" style="font-size:16px">📅</button>
           <button class="icon-btn" data-action="conv-snooze" data-id="${st.conv_id}" title="Snooze (отложить)" style="font-size:16px">💤</button>
@@ -1944,6 +1956,7 @@ async function openConv(cid) {
       lead_tg_id: conv?.lead_tg_id || null,
       title: conv?.lead_name || conv?.lead_username || `Чат #${cid}`,
       subtitle: conv?.account_phone ? `через ${conv.account_phone}` : '',
+      bot_mode: conv?.bot_mode || 'auto',
     });
     requestAnimationFrame(() => {
       const ml = document.getElementById('msg-list');
@@ -2145,6 +2158,8 @@ async function handleAction(action, el) {
         auto_reply_enabled: document.getElementById('ad-autoreply')?.checked || false,
         auto_reply_prompt:  document.getElementById('ad-autoprompt')?.value || '',
         schedule:           collectSchedule(),
+        bot_max_per_thread: parseInt(document.getElementById('ad-bot-max')?.value || '5', 10),
+        bot_rate_limit_hour: parseInt(document.getElementById('ad-bot-rate')?.value || '10', 10),
       };
       try { await API.accounts.update(id, data); toast('✅ Сохранено'); loadAccounts(); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
@@ -2717,6 +2732,19 @@ async function handleAction(action, el) {
       const text = (window.QUICK_REPLIES || [])[idx] || '';
       const inp = document.getElementById('reply-input');
       if (inp) { inp.value = text; inp.focus(); }
+      break;
+    }
+    case 'conv-bot-mode': {
+      const cid = parseInt(el.dataset.id, 10);
+      const cur = el.dataset.current || 'auto';
+      const next = ({auto: 'human_only', human_only: 'paused', paused: 'auto'})[cur] || 'auto';
+      try {
+        await API.inbox.setBotMode(cid, next);
+        toast(`Режим: ${next==='auto'?'🤖 авто':next==='human_only'?'👤 только человек':'⏸ пауза'}`);
+        // Перерисовать conv
+        const st = screenState.conv;
+        render('conv', { ...st, bot_mode: next });
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
     case 'conv-snooze': {
