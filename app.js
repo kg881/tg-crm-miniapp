@@ -1349,6 +1349,23 @@ const screens = {
       </div>`;
   },
 
+  // ---------- CREATE EMPTY LIST (вместо prompt — экран, prompt не работает в TG iOS) ----------
+  list_create: (st) => `
+    <div class="screen">
+      <div class="head-row"><h2 style="font-size:18px">Новый пустой список</h2></div>
+      <div class="card">
+        <label style="font-size:12px;color:var(--text-muted)">Название списка</label>
+        <input id="lc-name" value="${escape(st?.name || 'Список ' + new Date().toISOString().slice(0,10))}"
+               style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:15px;margin-top:4px" autofocus>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
+          После создания попадёшь на экран списка, где сможешь добавлять лидов вручную (TG-username, имя, компания, статус) или загрузить CSV.
+        </div>
+      </div>
+      <button class="btn full" style="margin-top:8px" data-action="lc-create">Создать и открыть</button>
+      <button class="btn full secondary" style="margin-top:8px" data-action="goto-lists">Отмена</button>
+    </div>
+  `,
+
   // ---------- TG FOLDERS (синк ТГ-папок) ----------
   tg_folders: (st) => {
     const accs = (st?.accounts || []).filter(a => a.status === 'active');
@@ -2158,9 +2175,10 @@ async function handleAction(action, el) {
 
     // Lists
     case 'upload-csv':       render('csv_upload', {}); break;
-    case 'create-empty-list': {
-      const name = prompt_('Название нового списка:', 'Список ' + new Date().toISOString().slice(0,10));
-      if (!name) return;
+    case 'create-empty-list': render('list_create', {}); break;
+    case 'lc-create': {
+      const name = (document.getElementById('lc-name').value || '').trim();
+      if (!name) { toast('Введи название'); return; }
       try {
         const ll = await API.lists.create(name);
         toast(`✅ Список «${ll.name}» создан`);
@@ -2606,16 +2624,19 @@ async function handleAction(action, el) {
     }
     case 'cw-test-send': {
       const w = screenState.campaign_wizard;
-      if (!ME.username) { toast('У вас нет username — некуда слать тест. Поставьте username в TG.'); return; }
+      const target = ME.username ? ('@' + ME.username) : (ME.id ? String(ME.id) : '');
+      if (!target) { toast('Не нашёл, кому слать тест: нет ни username ни tg_id у тебя.'); return; }
       const accs = w.accounts.filter(a => (w.data.account_ids || []).includes(a.id));
-      if (!accs.length) { toast('Сначала выберите акк на шаге 3'); return; }
+      if (!accs.length) { toast('Сначала выберите акк на шаге 4'); return; }
+      const activeAcc = accs.find(a => a.status === 'active') || accs[0];
+      if (activeAcc.status !== 'active') { toast(`Акк ${activeAcc.phone} не active (${activeAcc.status}). Тест отправить нельзя.`); return; }
       try {
         const r = await API.campaigns.testSend({
           template_id: w.data.template_id,
-          account_id:  accs[0].id,
-          target:      '@' + ME.username,
+          account_id:  activeAcc.id,
+          target,
         });
-        toast(`✅ Тест отправлен вам в личку:\n\n${r.rendered}`);
+        toast(`✅ Тест отправлен (${target}):\n\n${r.rendered.slice(0,400)}`);
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
