@@ -160,6 +160,16 @@ const API = {
     badges: () => API.req('GET', '/api/dashboard/badges'),
   },
 
+  guru: {
+    chat:      (text)              => API.req('POST', '/api/guru/chat', { text }),
+    history:   (limit=50)          => API.req('GET',  `/api/guru/history?limit=${limit}`),
+    actions:   (status)            => API.req('GET',  `/api/guru/actions${status?`?status=${status}`:''}`),
+    approve:   (id)                => API.req('POST', `/api/guru/actions/${id}/approve`),
+    reject:    (id)                => API.req('POST', `/api/guru/actions/${id}/reject`),
+    edit:      (id, draft_text)    => API.req('POST', `/api/guru/actions/${id}/edit`, { draft_text }),
+    setMode:   (conv_id, guru_mode)=> API.req('POST', `/api/guru/conv/${conv_id}/mode`, { guru_mode }),
+  },
+
   // URL аватарки (для <img src="...">)
   avatarUrl: (tgId) => `${API.base()}/api/avatars/${tgId}`,
 };

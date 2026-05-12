@@ -113,7 +113,7 @@ let currentScreen = 'dashboard';
 let screenState = {};
 let IS_ADMIN = false;
 const navStack = [];
-const MAIN_TABS = new Set(['dashboard','outreach','inbox','more']);
+const MAIN_TABS = new Set(['dashboard','outreach','inbox','guru','more']);
 let _navBack = false;
 let _poll = null;
 function stopPoll() { if (_poll) { clearInterval(_poll); _poll = null; } }
@@ -1769,6 +1769,59 @@ const screens = {
       </div>`;
   },
 
+  // ---------- GURU ----------
+  guru: (st) => {
+    const msgs = st?.messages;
+    const actions = st?.actions || [];
+    if (msgs === null) {
+      return `<div class="screen"><div class="empty"><div class="empty-ico">…</div><div class="empty-title">Загружаю Guru</div></div></div>`;
+    }
+    const pending = actions.filter(a => a.status === 'pending');
+    const draftHTML = (a) => `
+      <div class="guru-card guru-card-${escape(a.status)}" data-act-id="${a.id}">
+        <div class="guru-card-head">
+          <div class="guru-card-title">${a.trigger === 'incoming_reply' ? '✉ Лиду:' : '✎ Черновик для:'} <b>${escape(a.target_label || a.target_username || a.target_phone || '?')}</b></div>
+          <div class="guru-card-meta">${escape(a.status)}${a.trigger === 'incoming_reply' ? ' · авто' : ''}</div>
+        </div>
+        ${a.intent ? `<div class="guru-card-intent">«${escape(a.intent)}»</div>` : ''}
+        <textarea class="guru-draft" id="guru-draft-${a.id}" rows="3" ${a.status !== 'pending' ? 'disabled' : ''}>${escape(a.draft_text || '')}</textarea>
+        ${a.status === 'pending' ? `
+          <div class="guru-actions">
+            <button class="btn primary" onclick="guruApprove(${a.id})">✓ Approve & Send</button>
+            <button class="btn" onclick="guruEdit(${a.id})">Сохранить правки</button>
+            <button class="btn ghost" onclick="guruReject(${a.id})">Отклонить</button>
+          </div>` : ''}
+        ${a.error ? `<div class="guru-card-error">⚠️ ${escape(a.error)}</div>` : ''}
+      </div>`;
+    const msgHTML = (m) => {
+      if (m.tool_calls && m.tool_calls.length) {
+        const aid = m.tool_calls[0]?.action_id;
+        const a = aid && actions.find(x => x.id === aid);
+        if (a) return `<div class="guru-msg guru-msg-${escape(m.role)}"><div class="guru-bubble">${escape(m.content)}</div>${draftHTML(a)}</div>`;
+      }
+      return `<div class="guru-msg guru-msg-${escape(m.role)}"><div class="guru-bubble">${escape(m.content).replace(/\n/g,'<br>')}</div></div>`;
+    };
+    const standalonePending = pending.filter(a => !msgs.some(m => (m.tool_calls||[]).some(tc => tc.action_id === a.id)));
+    return `
+    <div class="screen guru-screen">
+      <div class="head-row"><h2>★ Guru</h2><div class="muted small">${pending.length} pending</div></div>
+      <div class="guru-log" id="guru-log">
+        ${msgs.length === 0 && actions.length === 0 ? `
+          <div class="empty"><div class="empty-ico">★</div>
+            <div class="empty-title">Привет, ${escape(ME.first_name)}!</div>
+            <div class="empty-sub">Пиши: «ответь @user привет», «спроси Х про цены», «напиши +7… демо завтра».<br>
+            Я сгенерю черновик — ты апрувнешь — улетит лиду.</div>
+          </div>` : ''}
+        ${standalonePending.map(draftHTML).join('')}
+        ${msgs.map(msgHTML).join('')}
+      </div>
+      <div class="guru-input-bar">
+        <textarea id="guru-input" rows="2" placeholder="Задача для Guru…"></textarea>
+        <button class="btn primary" onclick="guruSend()">→</button>
+      </div>
+    </div>`;
+  },
+
   // ---------- MORE ----------
   more: () => `
     <div class="screen">
@@ -1946,6 +1999,60 @@ async function refreshBadges() {
       }
     });
   } catch {}
+}
+
+async function loadGuru(silent=false) {
+  if (!silent) {
+    // Не сбрасываем уже отрисованные сообщения, чтобы не ломать ввод
+    if (currentScreen !== 'guru') render('guru', { messages: null, actions: [] });
+  }
+  try {
+    const h = await API.guru.history(60);
+    const draft = document.getElementById('guru-input')?.value || '';
+    render('guru', { messages: h.messages, actions: h.actions, _draft: draft });
+    requestAnimationFrame(() => {
+      const log = document.getElementById('guru-log');
+      if (log) log.scrollTop = log.scrollHeight;
+      const inp = document.getElementById('guru-input');
+      if (inp && draft) inp.value = draft;
+    });
+  } catch (e) {
+    if (!silent) {
+      render('guru', { messages: [], actions: [] });
+      toast(`Guru недоступен: ${e.message}`);
+    }
+  }
+}
+
+async function guruSend() {
+  const inp = document.getElementById('guru-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+  inp.value = '';
+  // оптимистично рендерим юзерское сообщение
+  const cur = screenState.guru || { messages: [], actions: [] };
+  cur.messages = [...(cur.messages||[]), { role: 'user', content: text, _temp: true }];
+  render('guru', cur);
+  try {
+    await API.guru.chat(text);
+  } catch (e) { toast(`Ошибка: ${e.message}`); }
+  loadGuru(true);
+}
+
+async function guruApprove(id) {
+  try { await API.guru.approve(id); loadGuru(true); }
+  catch (e) { toast(`Ошибка: ${e.message}`); }
+}
+async function guruReject(id) {
+  try { await API.guru.reject(id); loadGuru(true); }
+  catch (e) { toast(`Ошибка: ${e.message}`); }
+}
+async function guruEdit(id) {
+  const el = document.getElementById(`guru-draft-${id}`);
+  const txt = (el?.value || '').trim();
+  if (!txt) return;
+  try { await API.guru.edit(id, txt); toast('Черновик обновлён'); }
+  catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
 async function loadInbox(silent=false) {
@@ -2970,6 +3077,7 @@ document.addEventListener('click', (e) => {
       startPoll(() => { loadInbox(true); refreshBadges(); }, 15000);
     } else if (name === 'outreach') { render('outreach'); loadOutreachSummaries(); }
     else if (name === 'dashboard') { loadDashboard(); startPoll(() => { loadDashboard(); refreshBadges(); }, 30000); }
+    else if (name === 'guru') { loadGuru(); startPoll(() => loadGuru(true), 8000); }
     else                            render(name);
     return;
   }
