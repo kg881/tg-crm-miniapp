@@ -268,8 +268,8 @@ const screens = {
         <div class="card" style="background:var(--ink);color:var(--card);border-color:var(--ink);display:flex;align-items:center;gap:14px">
           <div class="sensei-avatar" style="flex:0 0 auto;width:48px;height:48px"></div>
           <div style="flex:1">
-            <div style="font-family:var(--font-h);font-size:14px;letter-spacing:1px">ОЯЁ, ${escape(ME.first_name||'СЭМПАЙ').toUpperCase()}</div>
-            <div style="font-size:12px;color:var(--gold);margin-top:4px">${d.live_campaigns||0} кампании в работе · ${d.replies_today||0} ответов сегодня</div>
+            <div style="font-family:var(--font-h);font-weight:700;font-size:16px">Привет, ${escape(ME.first_name||'Сэмпай')}</div>
+            <div style="font-size:13px;color:var(--gold);margin-top:4px;font-weight:500">${d.live_campaigns||0} кампании в работе · ${d.replies_today||0} ответов сегодня</div>
           </div>
         </div>
         <div class="stats-grid">
@@ -1748,7 +1748,7 @@ const screens = {
     const p = st?.profile || {};
     const tier = p.tier || 'BETA';
     const handle = p.username || ME.username || 'guest';
-    const name = (p.first_name || ME.first_name || '—').toUpperCase();
+    const name = p.first_name || ME.first_name || '—';
     return `
       <div class="screen">
         <div class="head-row">
@@ -1762,9 +1762,9 @@ const screens = {
           <div style="display:flex;align-items:center;gap:14px">
             <div class="sensei-avatar" style="flex:0 0 auto"></div>
             <div style="flex:1;min-width:0">
-              <div style="font-family:var(--font-h);font-size:18px;letter-spacing:1px">${escape(name)}</div>
-              <div style="font-size:13px;color:var(--gold);margin-top:4px">@${escape(handle)} · DAN III</div>
-              <div style="font-size:11px;color:var(--ink-3);margin-top:2px">с мая 2026</div>
+              <div style="font-family:var(--font-h);font-weight:700;font-size:17px">${escape(name)}</div>
+              <div style="font-size:13px;color:var(--gold);margin-top:4px;font-weight:500">@${escape(handle)} · DAN III</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px">с мая 2026</div>
             </div>
             <div class="pill" style="background:var(--gold);color:var(--ink);border-color:var(--card);font-size:12px;padding:6px 12px">${escape(tier)}</div>
           </div>

@@ -2,7 +2,7 @@
    BitOK CRM — Pixel UI skin (см. ~/.claude/skills/pixel-ui/SKILL.md)
    =================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600;700&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
 
 :root {
   /* Палитра */
@@ -18,10 +18,10 @@
   --plum:     #7A4E8C;
   --blue:     #5B89C5;
 
-  /* Шрифты */
-  --font-h:   'Silkscreen', monospace;
-  --font-ui:  'Pixelify Sans', sans-serif;
-  --font-num: 'VT323', monospace;
+  /* Шрифты — читабельные, но с tech-характером */
+  --font-h:   'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --font-ui:  'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-num: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
   /* Тени */
   --sh-sm: 3px 3px 0 var(--ink);
@@ -36,16 +36,17 @@ body {
   font-family: var(--font-ui);
   background: var(--paper);
   color: var(--ink);
-  font-size: 15px;
-  line-height: 1.35;
-  -webkit-font-smoothing: none;
-  font-smooth: never;
-  image-rendering: pixelated;
-  /* пиксельный фон-крапинка */
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+  /* пиксельный фон-крапинка — оставляем для эстетики */
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(26,20,17,.06) 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, rgba(26,20,17,.05) 1px, transparent 0);
   background-size: 8px 8px;
 }
+img, svg { image-rendering: pixelated; }   /* пиксельный рендер только для иконок */
 
 #app {
   display: flex; flex-direction: column;
@@ -74,11 +75,12 @@ body {
   box-shadow: 3px 3px 0 var(--card);
 }
 .brand-name {
-  font-family: var(--font-h); font-weight: 700; font-size: 14px;
-  letter-spacing: 1px; text-transform: uppercase; color: var(--card);
+  font-family: var(--font-h); font-weight: 700; font-size: 15px;
+  letter-spacing: 0.5px; color: var(--card);
 }
 .brand-sub {
   font-family: var(--font-ui); font-size: 12px; color: var(--gold); margin-top: 2px;
+  font-weight: 500;
 }
 .icon-btn {
   background: transparent; color: var(--card);
@@ -108,17 +110,15 @@ main {
 }
 .tab {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  font-family: var(--font-h); font-size: 9px; text-transform: uppercase;
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600;
   background: transparent; color: var(--ink-3);
   border: 2px solid transparent;
-  padding: 8px 4px; cursor: pointer; letter-spacing: 1px;
+  padding: 8px 4px; cursor: pointer; letter-spacing: 0;
   position: relative;
-  transition: none;
 }
-.tab-ico { font-size: 18px; line-height: 1; margin-bottom: 4px; font-family: var(--font-ui); display: flex; align-items: center; justify-content: center; height: 22px; }
+.tab-ico { font-size: 18px; line-height: 1; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; height: 22px; }
 .tab-ico svg { display: block; }
-.tab-badge { background: var(--gold); color: var(--ink); }
-.tab-lbl { font-family: var(--font-h); }
+.tab-lbl { font-family: var(--font-ui); font-weight: 600; }
 .tab.active {
   background: var(--red);
   color: var(--card);
@@ -127,7 +127,7 @@ main {
 .tab-badge {
   position: absolute; top: 2px; right: 6px;
   background: var(--gold); color: var(--ink);
-  font-family: var(--font-h); font-size: 9px;
+  font-family: var(--font-h); font-weight: 700; font-size: 10px;
   padding: 1px 5px; border: 1px solid var(--ink);
   min-width: 16px; text-align: center; line-height: 1.2;
 }
@@ -149,13 +149,13 @@ main {
 }
 .head-row h2 {
   font-family: var(--font-h); font-weight: 700;
-  font-size: 18px; text-transform: uppercase; letter-spacing: 1px;
+  font-size: 18px; letter-spacing: -0.3px;
   color: var(--ink);
 }
 
 .section-title {
-  font-family: var(--font-h); font-size: 11px;
-  text-transform: uppercase; letter-spacing: 2px;
+  font-family: var(--font-h); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.2px;
   color: var(--ink-2); margin: 8px 4px 4px;
 }
 
@@ -171,8 +171,8 @@ main {
 .card-row { display: flex; align-items: center; gap: 12px; }
 .card-meta { font-size: 12px; color: var(--ink-2); margin-top: 4px; font-family: var(--font-ui); }
 .card-title {
-  font-family: var(--font-h); font-size: 13px;
-  text-transform: uppercase; letter-spacing: 1px; color: var(--ink);
+  font-family: var(--font-ui); font-size: 14px; font-weight: 600;
+  color: var(--ink);
 }
 .card-arrow { color: var(--ink-2); font-size: 20px; margin-left: auto; }
 
@@ -185,13 +185,13 @@ main {
   display: flex; align-items: center; justify-content: center;
   background: var(--gold); color: var(--ink);
   border: 2px solid var(--ink);
-  font-family: var(--font-h); font-size: 16px;
+  font-family: var(--font-h); font-weight: 700; font-size: 16px;
 }
 .list-text { flex: 1; min-width: 0; }
 .list-title {
-  font-family: var(--font-ui); font-weight: 600; font-size: 14px; color: var(--ink);
+  font-family: var(--font-ui); font-weight: 600; font-size: 15px; color: var(--ink);
 }
-.list-sub { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.list-sub { font-size: 13px; color: var(--ink-2); margin-top: 2px; font-weight: 400; }
 .list-arrow { color: var(--ink-2); font-family: var(--font-h); font-size: 18px; }
 
 /* ============================ STATS ============================ */
@@ -205,24 +205,27 @@ main {
   padding: 14px;
 }
 .stat-label {
-  font-family: var(--font-h); font-size: 10px;
-  text-transform: uppercase; letter-spacing: 1px; color: var(--ink-2);
+  font-family: var(--font-h); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.8px; color: var(--ink-2);
   margin-bottom: 6px;
 }
 .stat-value {
-  font-family: var(--font-num); font-size: 38px; line-height: 1; color: var(--ink);
+  font-family: var(--font-num); font-weight: 700; font-size: 32px;
+  line-height: 1; color: var(--ink); letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
 }
 .stat-trend {
-  font-family: var(--font-h); font-size: 10px;
-  color: var(--mint); margin-top: 6px; text-transform: uppercase;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  color: var(--mint); margin-top: 6px;
 }
 .stat-trend.down { color: var(--red); }
 .stat-trend.warn { color: var(--gold); }
 
 /* ============================ BUTTONS ============================ */
 .btn {
-  font-family: var(--font-h); text-transform: uppercase; letter-spacing: 1px;
-  padding: 10px 14px; font-size: 12px;
+  font-family: var(--font-ui); font-weight: 600;
+  letter-spacing: 0;
+  padding: 10px 16px; font-size: 14px;
   background: var(--card); color: var(--ink);
   border: 3px solid var(--ink);
   box-shadow: 4px 4px 0 var(--ink);
@@ -255,12 +258,13 @@ main {
 
 /* ============================ PILLS ============================ */
 .pill, .stage-chip {
-  font-family: var(--font-h); text-transform: uppercase;
-  font-size: 10px; letter-spacing: 1px;
+  font-family: var(--font-h); font-weight: 700;
+  font-size: 11px; letter-spacing: 0.3px;
   padding: 4px 8px; border: 2px solid var(--ink);
-  display: inline-block; line-height: 1;
+  display: inline-block; line-height: 1.2;
   background: var(--card); color: var(--ink); border-radius: 0;
   cursor: pointer; user-select: none;
+  text-transform: uppercase;
 }
 .pill.live, .stage-chip.live { background: var(--mint); color: var(--card); }
 .pill.pause { background: var(--gold); color: var(--ink); }
@@ -301,22 +305,22 @@ main {
 .lead:last-child { border-bottom: 0; }
 .lead-body { flex: 1; min-width: 0; }
 .lead-name {
-  font-family: var(--font-ui); font-weight: 600; font-size: 14px;
+  font-family: var(--font-ui); font-weight: 600; font-size: 15px;
   color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lead-status {
-  font-family: var(--font-h); font-size: 9px; text-transform: uppercase;
-  color: var(--ink-2); margin-top: 2px; letter-spacing: 1px;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  color: var(--ink-2); margin-top: 2px;
 }
 .lead-score {
-  font-family: var(--font-num); font-size: 18px; color: var(--ink);
+  font-family: var(--font-num); font-weight: 700; font-size: 18px; color: var(--ink);
 }
 
 /* ============================ AVATAR ============================ */
 .avatar {
   width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-h); font-weight: 700; font-size: 14px;
+  font-family: var(--font-h); font-weight: 700; font-size: 15px;
   background: var(--gold); color: var(--ink);
   border: 2px solid var(--ink);
   flex: 0 0 auto;
@@ -342,15 +346,14 @@ main {
 .conv-text {
   font-size: 13px; color: var(--ink-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: 2px; font-weight: 400;
 }
 .conv-time {
-  font-family: var(--font-h); font-size: 10px; color: var(--ink-2);
-  text-transform: uppercase; letter-spacing: 1px;
+  font-family: var(--font-num); font-weight: 500; font-size: 12px; color: var(--ink-2);
 }
 .conv-date {
-  font-family: var(--font-h); font-size: 10px; color: var(--ink-2);
-  text-align: center; margin: 12px 0; text-transform: uppercase; letter-spacing: 2px;
+  font-family: var(--font-h); font-weight: 700; font-size: 11px; color: var(--ink-2);
+  text-align: center; margin: 12px 0; text-transform: uppercase; letter-spacing: 1px;
 }
 .conv-media-ico { font-size: 16px; }
 
@@ -373,10 +376,10 @@ main {
   display: flex; flex-direction: column; gap: 8px;
 }
 .conv-bubble {
-  max-width: 80%; padding: 8px 12px;
+  max-width: 80%; padding: 9px 13px;
   border: 2px solid var(--ink);
   background: var(--card); color: var(--ink);
-  font-size: 14px; line-height: 1.35;
+  font-family: var(--font-ui); font-size: 14px; line-height: 1.45;
   word-wrap: break-word;
   box-shadow: 2px 2px 0 var(--ink);
   align-self: flex-start;
@@ -394,8 +397,8 @@ main {
   flex: 1;
   background: var(--paper);
   border: 2px solid var(--ink);
-  padding: 8px 10px;
-  font-family: var(--font-ui); font-size: 14px;
+  padding: 9px 12px;
+  font-family: var(--font-ui); font-size: 14px; line-height: 1.4;
   color: var(--ink); resize: none;
   min-height: 40px; border-radius: 0;
   outline: none;
@@ -411,7 +414,7 @@ main {
   background: var(--red); color: var(--card);
   border: 3px solid var(--ink);
   box-shadow: 5px 5px 0 var(--ink);
-  font-family: var(--font-h); font-size: 26px; line-height: 1;
+  font-family: var(--font-ui); font-weight: 400; font-size: 28px; line-height: 1;
   cursor: pointer; border-radius: 0;
   display: flex; align-items: center; justify-content: center;
   transition: transform .05s, box-shadow .05s;
@@ -428,8 +431,8 @@ main {
 }
 .fab-label {
   background: var(--card); color: var(--ink);
-  font-family: var(--font-ui); font-size: 13px;
-  padding: 6px 10px;
+  font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+  padding: 7px 12px;
   border: 2px solid var(--ink);
   box-shadow: 3px 3px 0 var(--ink);
 }
@@ -439,7 +442,7 @@ main {
   background: var(--card); color: var(--ink);
   border: 3px solid var(--ink);
   box-shadow: 3px 3px 0 var(--ink);
-  font-family: var(--font-h); font-size: 16px;
+  font-family: var(--font-ui); font-size: 18px;
   cursor: pointer; border-radius: 0;
   display: flex; align-items: center; justify-content: center;
 }
@@ -459,12 +462,12 @@ main {
   padding: 32px 16px; text-align: center;
 }
 .empty-ico {
-  font-family: var(--font-h); font-size: 40px;
+  font-family: var(--font-h); font-size: 36px;
   color: var(--ink-3); margin-bottom: 10px; line-height: 1;
 }
 .empty-title {
-  font-family: var(--font-h); text-transform: uppercase; letter-spacing: 1px;
-  font-size: 14px; color: var(--ink); margin-bottom: 6px;
+  font-family: var(--font-ui); font-weight: 600;
+  font-size: 15px; color: var(--ink); margin-bottom: 6px;
 }
 .empty + * { margin-top: 14px; }
 
@@ -482,7 +485,7 @@ main {
 }
 .search-bar::before {
   content: '>';
-  font-family: var(--font-h); color: var(--ink-2); font-size: 16px;
+  font-family: var(--font-h); font-weight: 700; color: var(--ink-2); font-size: 16px;
 }
 
 /* ============================ CAMPAIGN ROW ============================ */
@@ -494,11 +497,11 @@ main {
 }
 .campaign-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .campaign-title {
-  font-family: var(--font-h); text-transform: uppercase; letter-spacing: 1px;
-  font-size: 13px; color: var(--ink);
+  font-family: var(--font-ui); font-weight: 600;
+  font-size: 15px; color: var(--ink);
 }
 .campaign-meta {
-  font-family: var(--font-ui); font-size: 12px; color: var(--ink-2);
+  font-family: var(--font-ui); font-size: 13px; color: var(--ink-2);
   display: flex; gap: 10px; align-items: center; margin-top: 4px;
 }
 .campaign-status { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
@@ -523,7 +526,7 @@ main {
   background: var(--card); color: var(--ink);
   border: 2px solid var(--ink);
   box-shadow: 2px 2px 0 var(--ink);
-  font-family: var(--font-ui); font-size: 14px; line-height: 1.35;
+  font-family: var(--font-ui); font-size: 14px; line-height: 1.5;
   word-wrap: break-word;
 }
 .guru-msg-user .guru-bubble { background: var(--ink); color: var(--card); }
@@ -541,25 +544,24 @@ main {
 .guru-card-rejected, .guru-card-failed { background: var(--card); color: var(--ink-2); opacity: .7; }
 .guru-card-head { display: flex; justify-content: space-between; align-items: center; }
 .guru-card-title {
-  font-family: var(--font-h); font-size: 11px;
-  text-transform: uppercase; letter-spacing: 1px;
+  font-family: var(--font-ui); font-weight: 600; font-size: 13px;
 }
 .guru-card-meta {
-  font-family: var(--font-h); font-size: 9px;
-  text-transform: uppercase; letter-spacing: 1px;
+  font-family: var(--font-h); font-weight: 700; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.5px;
   background: var(--ink); color: var(--gold);
-  padding: 2px 6px; border: 1px solid var(--ink);
+  padding: 3px 7px; border: 1px solid var(--ink);
 }
 .guru-card-executed .guru-card-meta { background: var(--card); color: var(--mint); }
 .guru-card-intent {
-  font-family: var(--font-ui); font-size: 12px; font-style: italic;
-  background: rgba(26,20,17,.08); padding: 6px 8px; border: 1px solid var(--ink);
+  font-family: var(--font-ui); font-size: 13px; font-style: italic;
+  background: rgba(26,20,17,.08); padding: 7px 10px; border: 1px solid var(--ink);
 }
 .guru-draft {
   width: 100%; padding: 10px 12px;
   border: 2px solid var(--ink);
   background: var(--card); color: var(--ink);
-  font-family: var(--font-ui); font-size: 14px; line-height: 1.4;
+  font-family: var(--font-ui); font-size: 14px; line-height: 1.5;
   resize: vertical; min-height: 60px;
   outline: 0; border-radius: 0;
 }
@@ -603,12 +605,12 @@ main {
 /* ============================ PROFILE ============================ */
 .usage-row { display: flex; justify-content: space-between; align-items: baseline; }
 .usage-label {
-  font-family: var(--font-h); font-size: 10px;
-  text-transform: uppercase; letter-spacing: 1px;
+  font-family: var(--font-h); font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.8px;
   color: var(--ink-2); margin-bottom: 4px; display: block;
 }
-.usage-num { font-family: var(--font-h); font-size: 14px; color: var(--ink); }
-.usage-num .num { font-family: var(--font-num); font-size: 22px; }
+.usage-num { font-family: var(--font-ui); font-weight: 600; font-size: 14px; color: var(--ink); }
+.usage-num .num { font-family: var(--font-num); font-weight: 700; font-size: 22px; }
 
 .pixel-input {
   width: 100%; padding: 10px 12px;
@@ -640,9 +642,8 @@ textarea.pixel-input { font-family: var(--font-ui); }
   border: 2px solid var(--ink);
 }
 .ach-lbl {
-  font-family: var(--font-h); font-size: 9px;
-  text-transform: uppercase; letter-spacing: 1px; color: var(--ink);
-  text-align: center;
+  font-family: var(--font-ui); font-weight: 600; font-size: 11px;
+  color: var(--ink); text-align: center;
 }
 
 /* ============================ ANIMATIONS ============================ */
