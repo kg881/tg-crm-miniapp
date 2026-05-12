@@ -301,19 +301,8 @@ const screens = {
           </div>
         </div>
 
-        <div class="section-title">🔥 Горячие лиды (Trial Activated)</div>
-        ${d.hot_leads.length === 0 ? `
-          <div class="empty" style="padding:24px"><div style="font-size:13px">Нет лидов в Trial. Импортируйте список или поменяйте статусы вручную.</div></div>
-        ` : d.hot_leads.map(l => `
-          <div class="lead" data-action="open-lead-tg" data-username="${escape(l.username || '')}">
-            ${avatar(l.tg_id, l.name)}
-            <div class="lead-body"><div class="lead-name">${escape(l.name)}</div><div class="lead-status">${l.username?'@'+escape(l.username):''} · ${escape(l.stage)}</div></div>
-            <span class="lead-score hot">trial</span>
-          </div>
-        `).join('')}
-
         ${st.tasks && st.tasks.length ? `
-          <div class="section-title">📋 СЕГОДНЯ НАДО (${st.tasks.length})</div>
+          <div class="section-title">Сегодня надо (${st.tasks.length})</div>
           ${st.tasks.slice(0, 5).map(t => {
             const overdue = new Date(t.due_date) < new Date(new Date().toDateString());
             return `
@@ -331,10 +320,6 @@ const screens = {
           `;}).join('')}
           ${st.tasks.length > 5 ? `<button class="btn secondary full" style="margin-top:6px" data-action="goto-tasks">Все задачи (${st.tasks.length})</button>` : ''}
         ` : ''}
-
-        <div class="section-title">Быстрые действия</div>
-        <button class="btn full" data-action="run-briefing">☀️ Прислать брифинг в чат с ботом</button>
-        <button class="btn full secondary" style="margin-top:6px" data-action="goto-tasks">📋 Задачи</button>
         ${accountsFabHTML()}
       </div>
     `;
