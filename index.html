@@ -7,7 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="styles.css?v=1778260000">
+<link rel="stylesheet" href="styles.css?v=1778260100">
 </head>
 <body>
 <div id="app">
@@ -26,24 +26,46 @@
 
   <nav class="tabbar">
     <button class="tab" data-screen="dashboard">
-      <span class="tab-ico">▦</span><span class="tab-lbl">Главная</span>
+      <span class="tab-ico">
+        <svg viewBox="0 0 16 16" width="22" height="22" shape-rendering="crispEdges" fill="currentColor">
+          <path d="M8 1 L1 7 L3 7 L3 14 L7 14 L7 10 L9 10 L9 14 L13 14 L13 7 L15 7 Z"/>
+        </svg>
+      </span><span class="tab-lbl">Главная</span>
     </button>
     <button class="tab" data-screen="outreach">
-      <span class="tab-ico">↗</span><span class="tab-lbl">Аутрич</span>
+      <span class="tab-ico">
+        <svg viewBox="0 0 16 16" width="22" height="22" shape-rendering="crispEdges" fill="currentColor">
+          <path d="M2 8 L9 1 L9 4 L14 4 L14 12 L9 12 L9 15 Z"/>
+        </svg>
+      </span><span class="tab-lbl">Аутрич</span>
     </button>
     <button class="tab" data-screen="inbox">
-      <span class="tab-ico">✉</span><span class="tab-lbl">Inbox</span>
+      <span class="tab-ico">
+        <svg viewBox="0 0 16 16" width="22" height="22" shape-rendering="crispEdges" fill="currentColor">
+          <path d="M1 3 H15 V13 H1 Z M1 3 L8 9 L15 3" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+      </span><span class="tab-lbl">Inbox</span>
     </button>
     <button class="tab" data-screen="guru">
-      <span class="tab-ico">★</span><span class="tab-lbl">Guru</span>
+      <span class="tab-ico">
+        <svg viewBox="0 0 16 16" width="22" height="22" shape-rendering="crispEdges" fill="currentColor">
+          <path d="M8 1 L10 6 L15 6 L11 9 L13 14 L8 11 L3 14 L5 9 L1 6 L6 6 Z"/>
+        </svg>
+      </span><span class="tab-lbl">Guru</span>
     </button>
     <button class="tab" data-screen="more">
-      <span class="tab-ico">⋯</span><span class="tab-lbl">Ещё</span>
+      <span class="tab-ico">
+        <svg viewBox="0 0 16 16" width="22" height="22" shape-rendering="crispEdges" fill="currentColor">
+          <rect x="1" y="6" width="3" height="3"/>
+          <rect x="6" y="6" width="3" height="3"/>
+          <rect x="11" y="6" width="3" height="3"/>
+        </svg>
+      </span><span class="tab-lbl">Ещё</span>
     </button>
   </nav>
 </div>
 
-<script src="api.js?v=1778260000"></script>
-<script src="app.js?v=1778260000"></script>
+<script src="api.js?v=1778260100"></script>
+<script src="app.js?v=1778260100"></script>
 </body>
 </html>

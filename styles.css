@@ -115,7 +115,9 @@ main {
   position: relative;
   transition: none;
 }
-.tab-ico { font-size: 18px; line-height: 1; margin-bottom: 4px; font-family: var(--font-ui); }
+.tab-ico { font-size: 18px; line-height: 1; margin-bottom: 4px; font-family: var(--font-ui); display: flex; align-items: center; justify-content: center; height: 22px; }
+.tab-ico svg { display: block; }
+.tab-badge { background: var(--gold); color: var(--ink); }
 .tab-lbl { font-family: var(--font-h); }
 .tab.active {
   background: var(--red);
@@ -584,6 +586,64 @@ main {
   outline: 0; color: var(--ink); border-radius: 0;
 }
 .guru-input-bar .btn { padding: 0 14px; font-size: 18px; min-width: 48px; }
+
+/* ============================ SENSEI MASCOT ============================ */
+.sensei-avatar {
+  width: 56px; height: 56px;
+  background: var(--card);
+  border: 3px solid var(--card);
+  box-shadow: 4px 4px 0 var(--gold);
+  position: relative;
+  /* пиксельный ниндзя через background-image SVG data-uri */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect width='16' height='16' fill='%23FFFDF6'/><rect x='4' y='2' width='8' height='2' fill='%231A1411'/><rect x='3' y='3' width='10' height='2' fill='%231A1411'/><rect x='3' y='4' width='10' height='2' fill='%23D6362C'/><rect x='4' y='6' width='8' height='3' fill='%23F5C9A0'/><rect x='5' y='7' width='1' height='1' fill='%231A1411'/><rect x='10' y='7' width='1' height='1' fill='%231A1411'/><rect x='4' y='9' width='8' height='5' fill='%231A1411'/><rect x='3' y='14' width='10' height='2' fill='%231A1411'/></svg>");
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* ============================ PROFILE ============================ */
+.usage-row { display: flex; justify-content: space-between; align-items: baseline; }
+.usage-label {
+  font-family: var(--font-h); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--ink-2); margin-bottom: 4px; display: block;
+}
+.usage-num { font-family: var(--font-h); font-size: 14px; color: var(--ink); }
+.usage-num .num { font-family: var(--font-num); font-size: 22px; }
+
+.pixel-input {
+  width: 100%; padding: 10px 12px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  font-family: var(--font-ui); font-size: 14px;
+  color: var(--ink); border-radius: 0; outline: 0;
+  margin-top: 6px; resize: vertical;
+}
+.pixel-input:focus { background: var(--card); }
+textarea.pixel-input { font-family: var(--font-ui); }
+
+.achievements {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.ach {
+  background: var(--card);
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.ach.locked { opacity: .35; filter: grayscale(1); }
+.ach-ico {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  background: var(--paper); color: var(--ink-2);
+  border: 2px solid var(--ink);
+}
+.ach-lbl {
+  font-family: var(--font-h); font-size: 9px;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--ink);
+  text-align: center;
+}
 
 /* ============================ ANIMATIONS ============================ */
 .toast {

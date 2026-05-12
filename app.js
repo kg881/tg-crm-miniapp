@@ -53,15 +53,16 @@ function colorFor(name) {
 }
 
 // Аватарка: цветной кружок с инициалами + поверх <img> (если загрузился — закроет фон)
-function avatar(tgId, name, size = 40) {
+function avatar(tgId, name, unread = false, size = 40) {
+  // Pixel-style square avatar: цветной фон, чёрный border, опционально красная точка-unread.
   const color = colorFor(name || String(tgId || '?'));
   const ini = initials(name);
-  const fontSize = Math.round(size * 0.4);
-  const wrap = `width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:${fontSize}px;flex:0 0 ${size}px;overflow:hidden;position:relative`;
-  if (!tgId) return `<div style="${wrap}">${escape(ini)}</div>`;
+  const fontSize = Math.round(size * 0.42);
+  const wrap = `width:${size}px;height:${size}px;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-weight:700;font-size:${fontSize}px;flex:0 0 ${size}px;overflow:hidden;position:relative;border:2px solid var(--ink);box-shadow:2px 2px 0 var(--ink)`;
+  const dot = unread ? `<span style="position:absolute;bottom:-3px;right:-3px;width:8px;height:8px;background:var(--red);border:2px solid var(--ink)"></span>` : '';
+  if (!tgId) return `<div style="${wrap}"><span>${escape(ini)}</span>${dot}</div>`;
   const url = API.avatarUrl(tgId);
-  // <img> позиционируется поверх инициалов. Не загрузилась → скрываем (без сломанной HTML-разметки).
-  return `<div style="${wrap}"><span>${escape(ini)}</span><img src="${url}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:${color}" onerror="this.style.display='none'"></div>`;
+  return `<div style="${wrap}"><span>${escape(ini)}</span><img src="${url}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:${color}" onerror="this.style.display='none'">${dot}</div>`;
 }
 
 async function copyText(text) {
@@ -254,21 +255,28 @@ const screens = {
     const d = st?.data;
     if (!d) return `
       <div class="screen">
-        <div class="head-row"><h2>Привет, ${escape(ME.first_name)}!</h2></div>
-        <div class="empty"><div class="empty-ico">…</div><div class="empty-title">Загружаю данные</div></div>
+        <div class="head-row"><h2>Оя ё, ${escape(ME.first_name)}</h2></div>
+        <div class="empty"><div class="empty-ico">⚀</div><div class="empty-title">Загружаю данные</div></div>
       </div>`;
     const trendSent = d.sent_yesterday ? (d.sent_today >= d.sent_yesterday ? '↑' : '↓') + ` vs вчера ${d.sent_yesterday}` : 'первый день';
+    const trendDirSent = d.sent_yesterday ? (d.sent_today >= d.sent_yesterday ? '' : ' down') : '';
     const queueLine = d.queue
       ? `${d.queue} в очереди${d.eta_days ? ` · ETA ~${d.eta_days} дн` : ''}`
       : 'очередь пуста';
     return `
       <div class="screen">
-        <div class="head-row"><h2>Привет, ${escape(ME.first_name)}!</h2></div>
+        <div class="card" style="background:var(--ink);color:var(--card);border-color:var(--ink);display:flex;align-items:center;gap:14px">
+          <div class="sensei-avatar" style="flex:0 0 auto;width:48px;height:48px"></div>
+          <div style="flex:1">
+            <div style="font-family:var(--font-h);font-size:14px;letter-spacing:1px">ОЯЁ, ${escape(ME.first_name||'СЭМПАЙ').toUpperCase()}</div>
+            <div style="font-size:12px;color:var(--gold);margin-top:4px">${d.live_campaigns||0} кампании в работе · ${d.replies_today||0} ответов сегодня</div>
+          </div>
+        </div>
         <div class="stats-grid">
           <div class="stat">
-            <div class="stat-label">Отправлено сегодня</div>
+            <div class="stat-label">Отправлено</div>
             <div class="stat-value">${d.sent_today}</div>
-            <div class="stat-trend">${escape(trendSent)}</div>
+            <div class="stat-trend${trendDirSent}">${escape(trendSent)}</div>
           </div>
           <div class="stat">
             <div class="stat-label">Ответов сегодня</div>
@@ -1191,28 +1199,31 @@ const screens = {
           `).join('')}
         </div>
         `}
-        ${display.length === 0 ? '<div class="empty"><div class="empty-title">Ничего не найдено</div></div>' :
+        ${display.length === 0 ? '<div class="empty"><div class="empty-ico">∅</div><div class="empty-title">Ничего не найдено</div></div>' :
           display.map(c => {
             const checked = selected.has(c.id);
-            const tagsHtml = (c.tags || []).slice(0, 4).map(t => `<span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:500;margin-right:3px">${escape(t)}</span>`).join('');
+            const tagsHtml = (c.tags || []).slice(0, 3).map(t => `<span class="pill" style="font-size:9px;padding:2px 6px">${escape(t)}</span>`).join(' ');
             const snoozed = c.snoozed_until && new Date(c.snoozed_until) > new Date();
+            const statusPill = c.lead_status === 'Trial Activated' ? 'pill warm' :
+                               c.lead_status === 'Paid' || c.lead_status === 'Active Partner' ? 'pill win' : 'pill cold';
             return `
-            <div class="lead" data-action="${selectMode?'ib-toggle':'open-conv'}" data-id="${c.id}" data-conv-row="${c.id}" style="${checked?'background:rgba(37,99,235,0.10);outline:2px solid var(--accent)':''}${snoozed?';opacity:.55':''}">
-              ${selectMode ? `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 40px"><input type="checkbox" ${checked?'checked':''} style="width:22px;height:22px;pointer-events:none"></div>` : avatar(c.lead_tg_id, c.lead_name || c.lead_username)}
-              <div class="lead-body">
-                <div class="lead-name">${escape(c.lead_name || c.lead_username || '?')} ${c.unread ? '<span style="color:#ef4444">●</span>' : ''}${snoozed?' 💤':''}</div>
-                ${c.campaign_name ? `<div style="font-size:11px;color:var(--accent);margin-top:1px">✉ ${escape(c.campaign_name)}</div>` : ''}
-                ${tagsHtml ? `<div style="margin-top:3px">${tagsHtml}</div>` : ''}
-                <div class="lead-status">${escape(c.last_text || '—').slice(0, 80)} · ${prettyTime(c.last_message_at)}</div>
+            <div class="conv-row" data-action="${selectMode?'ib-toggle':'open-conv'}" data-id="${c.id}" data-conv-row="${c.id}" style="${checked?'background:var(--gold);':''}${snoozed?'opacity:.55;':''}">
+              ${selectMode ? `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex:0 0 36px"><input type="checkbox" ${checked?'checked':''} style="width:20px;height:20px;pointer-events:none"></div>` : avatar(c.lead_tg_id, c.lead_name || c.lead_username, c.unread)}
+              <div class="lead-body" style="flex:1;min-width:0">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                  <div class="lead-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(c.lead_name || c.lead_username || '?')}${snoozed?' 💤':''}</div>
+                  <div class="conv-time">${prettyTime(c.last_message_at)}</div>
+                </div>
+                <div class="conv-text" title="${escape(c.last_text||'')}">${escape(c.last_text || '—').slice(0, 70)}</div>
+                ${tagsHtml || c.lead_status ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${c.lead_status?`<span class="${statusPill}">${escape(c.lead_status)}</span>`:''}${tagsHtml}</div>` : ''}
               </div>
-              <span class="lead-score ${c.lead_status==='Trial Activated'?'hot':c.lead_status==='Testnet'?'warm':'cold'}">${escape(c.lead_status || c.account_phone)}</span>
             </div>
           `;}).join('')
         }
         ${selectMode && selected.size > 0 ? `
-          <div style="position:fixed;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom));z-index:30;padding:10px 16px;background:var(--bg);border-top:1px solid var(--border);max-width:540px;margin:0 auto;display:flex;gap:8px">
-            <button class="btn" style="flex:1" data-action="ib-bulk-reply">↩ Ответить ${selected.size}</button>
-            <button class="btn secondary" style="flex:1;color:#ef4444" data-action="ib-bulk-delete">🗑 ${selected.size}</button>
+          <div style="position:fixed;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom));z-index:30;padding:10px 16px;background:var(--card);border-top:3px solid var(--ink);max-width:540px;margin:0 auto;display:flex;gap:8px">
+            <button class="btn primary" style="flex:1" data-action="ib-bulk-reply">↩ Ответить ${selected.size}</button>
+            <button class="btn" style="flex:1" data-action="ib-bulk-delete">🗑 ${selected.size}</button>
           </div>
         ` : ''}
       </div>`;
@@ -1735,37 +1746,74 @@ const screens = {
   // ---------- PROFILE ----------
   profile: (st) => {
     const p = st?.profile || {};
+    const tier = p.tier || 'BETA';
+    const handle = p.username || ME.username || 'guest';
+    const name = (p.first_name || ME.first_name || '—').toUpperCase();
     return `
       <div class="screen">
-        <div class="head-row"><h2>Профиль</h2></div>
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div class="avatar blue" style="width:48px;height:48px;font-size:18px">${initials(p.first_name||p.username)}</div>
-            <div>
-              <div style="font-weight:600;font-size:16px">${escape(p.first_name||'')}</div>
-              <div style="font-size:13px;color:var(--text-muted)">@${escape(p.username||'-')}</div>
-            </div>
+        <div class="head-row">
+          <div>
+            <h2>Профиль</h2>
+            <div class="muted small" style="margin-top:2px">Аккаунт и достижения</div>
           </div>
         </div>
+
+        <div class="card" style="background:var(--ink);color:var(--card);border-color:var(--ink)">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="sensei-avatar" style="flex:0 0 auto"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-family:var(--font-h);font-size:18px;letter-spacing:1px">${escape(name)}</div>
+              <div style="font-size:13px;color:var(--gold);margin-top:4px">@${escape(handle)} · DAN III</div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:2px">с мая 2026</div>
+            </div>
+            <div class="pill" style="background:var(--gold);color:var(--ink);border-color:var(--card);font-size:12px;padding:6px 12px">${escape(tier)}</div>
+          </div>
+        </div>
+
+        <div class="section-title">Использование</div>
         <div class="card">
-          <label style="font-size:12px;color:var(--text-muted)">Calendly URL</label>
-          <input id="prof-calendly" value="${escape(p.calendly_url||'')}" placeholder="https://calendly.com/yourname/30min"
-                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Появится кнопкой 📅 в шапке любой переписки — отправит ссылку лиду в один клик.</div>
+          <div class="usage-row">
+            <div class="usage-label">Сообщений в месяц</div>
+            <div class="usage-num"><span class="num">${p.usage_msgs ?? 0}</span><span class="muted small"> / ${p.limit_msgs ?? '∞'}</span></div>
+          </div>
+          <div class="progress" style="margin:6px 0 14px"><div style="width:${Math.min(100, ((p.usage_msgs||0)/(p.limit_msgs||1))*100)}%"></div></div>
+          <div class="usage-row">
+            <div class="usage-label">AI-генераций</div>
+            <div class="usage-num"><span class="num">${p.usage_ai ?? 0}</span><span class="muted small"> / ${p.limit_ai ?? '∞'}</span></div>
+          </div>
+          <div class="progress" style="margin:6px 0 14px"><div class="" style="width:${Math.min(100, ((p.usage_ai||0)/(p.limit_ai||1))*100)}%;background:var(--plum);background-image:repeating-linear-gradient(to right,transparent 0 6px,rgba(0,0,0,.18) 6px 8px)"></div></div>
+          <div class="usage-row">
+            <div class="usage-label">Активных кампаний</div>
+            <div class="usage-num"><span class="num">${p.usage_camps ?? 0}</span><span class="muted small"> / ${p.limit_camps ?? '∞'}</span></div>
+          </div>
+          <div class="progress mint" style="margin:6px 0 0"><div style="width:${Math.min(100, ((p.usage_camps||0)/(p.limit_camps||1))*100)}%"></div></div>
+        </div>
+
+        <div class="section-title">Достижения</div>
+        <div class="achievements">
+          <div class="ach"><div class="ach-ico" style="background:var(--ink);color:var(--card)">🥷</div><div class="ach-lbl">Ниндзя</div></div>
+          <div class="ach"><div class="ach-ico" style="background:var(--gold);color:var(--ink)">⚔</div><div class="ach-lbl">100 отв</div></div>
+          <div class="ach"><div class="ach-ico" style="background:var(--red);color:var(--card)">⊕</div><div class="ach-lbl">20% RR</div></div>
+          <div class="ach locked"><div class="ach-ico">🐉</div><div class="ach-lbl">Дракон</div></div>
+        </div>
+
+        <div class="section-title">Настройки outreach</div>
+        <div class="card">
+          <label class="usage-label">Calendly URL</label>
+          <input id="prof-calendly" value="${escape(p.calendly_url||'')}" placeholder="https://calendly.com/yourname/30min" class="pixel-input">
+          <div class="muted small" style="margin-top:6px">Появится кнопкой 📅 в шапке переписки — отправит ссылку лиду.</div>
         </div>
         <div class="card">
-          <label style="font-size:12px;color:var(--text-muted)">Cooldown между сообщениями одному лиду (дни)</label>
-          <input id="prof-cooldown" type="number" min="0" max="365" value="${p.cooldown_days ?? 14}"
-                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Защита от дубликатов: если этому tg_id уже улетело сообщение из любой кампании за последние N дней — следующая попытка skip. <b>0 = выкл.</b></div>
+          <label class="usage-label">Cooldown между сообщениями (дни)</label>
+          <input id="prof-cooldown" type="number" min="0" max="365" value="${p.cooldown_days ?? 14}" class="pixel-input">
+          <div class="muted small" style="margin-top:6px">Защита от дубликатов: если этому tg_id уже улетело сообщение за N дней — skip. <b>0 = выкл.</b></div>
         </div>
         <div class="card">
-          <label style="font-size:12px;color:var(--text-muted)">Quick replies (по одному в строке)</label>
-          <textarea id="prof-quick" rows="6" placeholder="ок, перезвоню в чт&#10;спасибо, изучу&#10;давай созвонимся завтра в 16:00&#10;отправил материалы, посмотри"
-                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape((p.quick_replies||[]).join('\n'))}</textarea>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Появятся чипсами над input в каждой переписке — клик = подставит в поле ввода.</div>
+          <label class="usage-label">Quick replies (по одному в строке)</label>
+          <textarea id="prof-quick" rows="5" placeholder="ок, перезвоню в чт&#10;спасибо, изучу&#10;давай созвонимся завтра в 16:00" class="pixel-input">${escape((p.quick_replies||[]).join('\n'))}</textarea>
+          <div class="muted small" style="margin-top:6px">Появятся чипсами над input в каждой переписке.</div>
         </div>
-        <button class="btn full" style="margin-top:8px" data-action="save-profile">Сохранить</button>
+        <button class="btn primary full" data-action="save-profile">Сохранить</button>
       </div>`;
   },
 
