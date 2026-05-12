@@ -1241,7 +1241,7 @@ const screens = {
           <div class="avatar blue" style="width:36px;height:36px;font-size:14px">${initials(title)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')} · <span data-action="conv-bot-mode" data-id="${st.conv_id}" data-current="${st.bot_mode||'auto'}" style="cursor:pointer;color:${(st.bot_mode==='paused')?'#ef4444':(st.bot_mode==='human_only'?'#f59e0b':'#16a34a')};font-weight:500">${st.bot_mode==='paused'?'⏸ pause':st.bot_mode==='human_only'?'👤 human':'🤖 auto'}</span></div>
+            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')} · <span data-action="conv-bot-mode" data-id="${st.conv_id}" data-current="${st.bot_mode||'auto'}" style="cursor:pointer;color:${(st.bot_mode==='paused')?'#ef4444':(st.bot_mode==='human_only'?'#f59e0b':'#16a34a')};font-weight:500">${st.bot_mode==='paused'?'⏸ pause':st.bot_mode==='human_only'?'👤 human':'🤖 auto'}</span> · <span data-action="conv-guru-mode" data-id="${st.conv_id}" data-current="${st.guru_mode||'admin_approved'}" style="cursor:pointer;color:${(st.guru_mode==='off')?'#94a3b8':(st.guru_mode==='full_access'?'#dc2626':'#7c3aed')};font-weight:500">★ ${st.guru_mode==='off'?'off':st.guru_mode==='full_access'?'auto':'approve'}</span></div>
           </div>
           <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" style="font-size:16px">📅</button>
           <button class="icon-btn" data-action="conv-snooze" data-id="${st.conv_id}" title="Snooze (отложить)" style="font-size:16px">💤</button>
@@ -2051,7 +2051,11 @@ async function guruEdit(id) {
   const el = document.getElementById(`guru-draft-${id}`);
   const txt = (el?.value || '').trim();
   if (!txt) return;
-  try { await API.guru.edit(id, txt); toast('Черновик обновлён'); }
+  try {
+    await API.guru.edit(id, txt);
+    toast('✓ Сохранено');
+    loadGuru(true);
+  }
   catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
@@ -2079,6 +2083,7 @@ async function openConv(cid) {
       title: conv?.lead_name || conv?.lead_username || `Чат #${cid}`,
       subtitle: conv?.account_phone ? `через ${conv.account_phone}` : '',
       bot_mode: conv?.bot_mode || 'auto',
+      guru_mode: conv?.guru_mode || 'admin_approved',
     });
     requestAnimationFrame(() => {
       const ml = document.getElementById('msg-list');
@@ -2874,9 +2879,20 @@ async function handleAction(action, el) {
       try {
         await API.inbox.setBotMode(cid, next);
         toast(`Режим: ${next==='auto'?'🤖 авто':next==='human_only'?'👤 только человек':'⏸ пауза'}`);
-        // Перерисовать conv
         const st = screenState.conv;
         render('conv', { ...st, bot_mode: next });
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'conv-guru-mode': {
+      const cid = parseInt(el.dataset.id, 10);
+      const cur = el.dataset.current || 'admin_approved';
+      const next = ({admin_approved: 'full_access', full_access: 'off', off: 'admin_approved'})[cur] || 'admin_approved';
+      try {
+        await API.guru.setMode(cid, next);
+        toast(`Guru: ${next==='admin_approved'?'★ approve (черновик)':next==='full_access'?'★ auto (без апрува)':'★ off'}`);
+        const st = screenState.conv;
+        render('conv', { ...st, guru_mode: next });
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
