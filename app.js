@@ -3203,7 +3203,18 @@ if (tg) {
   tg.onEvent('backButtonClicked', goBack);
   tg.BackButton.onClick(goBack);   // дублируем — на всякий случай для новых версий
 }
-$('#user-handle').textContent = ME.username ? '@' + ME.username : 'BitOK Workspace';
+// Topbar collapse — состояние в localStorage
+const _topbar = document.getElementById('topbar');
+const _toggleBtn = document.getElementById('topbar-toggle');
+function _setTopbarCollapsed(c) {
+  _topbar?.classList.toggle('collapsed', c);
+  if (_toggleBtn) _toggleBtn.textContent = c ? '▾' : '▴';
+  try { localStorage.setItem('topbar_collapsed', c ? '1' : '0'); } catch {}
+}
+_setTopbarCollapsed(localStorage.getItem('topbar_collapsed') === '1');
+_toggleBtn?.addEventListener('click', () => {
+  _setTopbarCollapsed(!_topbar.classList.contains('collapsed'));
+});
 
 // Узнаём, админ ли (для показа пункта «Админка · идеи» в Ещё)
 API.me().then(r => {

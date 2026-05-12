@@ -58,13 +58,27 @@ img, svg { image-rendering: pixelated; }   /* пиксельный рендер 
 /* ============================ TOP BAR ============================ */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 14px 12px;
+  padding: 12px 14px;
   background: var(--ink);
   color: var(--card);
   flex: 0 0 auto;
   border-bottom: 3px solid var(--ink);
+  transition: padding .15s, max-height .2s;
+  overflow: hidden;
 }
-.brand { display: flex; align-items: center; gap: 12px; }
+.topbar.collapsed {
+  padding: 4px 14px;
+  max-height: 28px;
+}
+.topbar.collapsed .brand-text,
+.topbar.collapsed .logo,
+.topbar.collapsed #settings-btn { display: none; }
+.topbar.collapsed #topbar-toggle {
+  width: 24px; height: 24px; font-size: 12px;
+  border-width: 1px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .logo {
   width: 38px; height: 38px;
   background: var(--red);
@@ -73,14 +87,15 @@ img, svg { image-rendering: pixelated; }   /* пиксельный рендер 
   font-family: var(--font-h); font-weight: 700; font-size: 18px;
   border: 2px solid var(--card);
   box-shadow: 3px 3px 0 var(--card);
+  flex: 0 0 auto;
 }
 .brand-name {
-  font-family: var(--font-h); font-weight: 700; font-size: 15px;
-  letter-spacing: 0.5px; color: var(--card);
+  font-family: var(--font-h); font-weight: 700; font-size: 16px;
+  letter-spacing: 0.3px; color: var(--card);
 }
-.brand-sub {
-  font-family: var(--font-ui); font-size: 12px; color: var(--gold); margin-top: 2px;
-  font-weight: 500;
+.topbar-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+#topbar-toggle {
+  font-family: var(--font-h); font-weight: 700; line-height: 1;
 }
 .icon-btn {
   background: transparent; color: var(--card);

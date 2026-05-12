@@ -7,19 +7,21 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="styles.css?v=1778260200">
+<link rel="stylesheet" href="styles.css?v=1778260300">
 </head>
 <body>
 <div id="app">
-  <header class="topbar">
+  <header class="topbar" id="topbar">
     <div class="brand">
-      <div class="logo">B</div>
+      <div class="logo">G</div>
       <div class="brand-text">
-        <div class="brand-name">BitOK CRM</div>
-        <div class="brand-sub" id="user-handle">—</div>
+        <div class="brand-name">Guru Outreach</div>
       </div>
     </div>
-    <button class="icon-btn" id="settings-btn" title="Настройки бэкенда">⚙</button>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="settings-btn" title="Настройки бэкенда">⚙</button>
+      <button class="icon-btn" id="topbar-toggle" title="Скрыть/показать шапку">▴</button>
+    </div>
   </header>
 
   <main id="screen-root"></main>
@@ -65,7 +67,7 @@
   </nav>
 </div>
 
-<script src="api.js?v=1778260200"></script>
-<script src="app.js?v=1778260200"></script>
+<script src="api.js?v=1778260300"></script>
+<script src="app.js?v=1778260300"></script>
 </body>
 </html>
