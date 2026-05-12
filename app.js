@@ -213,23 +213,23 @@ document.addEventListener('change', (e) => {
 function accountsFabHTML() {
   return `
     <div class="fab-wrap" id="acc-fab">
-      <div class="fab-action" data-action="fab-forward">
+      <div class="fab-action" data-action="fab-forward" title="Форварднуть сообщение из ТГ — автоматически создаст лид с этим контактом">
         <span class="fab-label">Форварднуть сообщение ⤴</span>
-        <button class="fab-mini">⤴</button>
+        <button class="fab-mini" title="Форварднуть сообщение из ТГ — автоматически создаст лид с этим контактом">⤴</button>
       </div>
-      <div class="fab-action" data-action="fab-sync">
+      <div class="fab-action" data-action="fab-sync" title="Синхронизировать папки Telegram — импорт всех чатов из выбранных папок">
         <span class="fab-label accent">Синк ТГ-папок</span>
-        <button class="fab-mini" style="background:var(--accent);color:#fff;border-color:transparent">▦</button>
+        <button class="fab-mini" title="Синхронизировать папки Telegram — импорт всех чатов из выбранных папок" style="background:var(--accent);color:#fff;border-color:transparent">▦</button>
       </div>
-      <div class="fab-action" data-action="fab-qr">
+      <div class="fab-action" data-action="fab-qr" title="Подключить новый TG-аккаунт через QR-код">
         <span class="fab-label">Сканировать QR</span>
-        <button class="fab-mini">▣</button>
+        <button class="fab-mini" title="Подключить новый TG-аккаунт через QR-код">▣</button>
       </div>
-      <div class="fab-action" data-action="fab-manual">
+      <div class="fab-action" data-action="fab-manual" title="Добавить TG-аккаунт по номеру + код подтверждения">
         <span class="fab-label">Добавить вручную</span>
-        <button class="fab-mini">✎</button>
+        <button class="fab-mini" title="Добавить TG-аккаунт по номеру + код подтверждения">✎</button>
       </div>
-      <button class="fab-main" data-action="fab-toggle">+</button>
+      <button class="fab-main" data-action="fab-toggle" title="Меню добавления (аккаунт / форвард / синк папок)">+</button>
     </div>
     <div class="fab-backdrop" id="acc-fab-backdrop" data-action="fab-toggle"></div>
   `;
@@ -317,7 +317,7 @@ const screens = {
                     ${overdue?'⚠ просрочена':'до'} ${prettyTime(t.due_date)}${t.lead_name?' · '+escape(t.lead_name):''}
                   </div>
                 </div>
-                <button class="btn secondary" style="padding:4px 10px;font-size:12px" data-action="task-done" data-id="${t.id}">✓</button>
+                <button class="btn secondary" style="padding:4px 10px;font-size:12px" data-action="task-done" data-id="${t.id}" title="Отметить задачу выполненной">✓</button>
               </div>
             </div>
           `;}).join('')}
@@ -337,7 +337,7 @@ const screens = {
     const active = st?.stage || 'all';
     return `
       <div class="screen">
-        <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="goto-lists">+</button></div>
+        <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="goto-lists" title="Перейти к спискам лидов — оттуда выбираешь лида в новую сделку">+</button></div>
         <div class="stage-strip">
           ${MOCK.pipeline_stages.map(s => `
             <div class="stage-chip ${s.id === active ? 'active' : ''}" data-stage="${s.id}">${s.label} · ${s.count}</div>
@@ -646,7 +646,7 @@ const screens = {
     const lists = st?.lists ?? [];
     return `
       <div class="screen">
-        <div class="head-row"><h2>Списки лидов</h2><button class="add-btn" data-action="upload-csv">+</button></div>
+        <div class="head-row"><h2>Списки лидов</h2><button class="add-btn" data-action="upload-csv" title="Загрузить CSV с лидами (имя, username, телефон, заметки)">+</button></div>
         ${lists.length === 0 ? `
           <div class="empty">
             <div class="empty-ico">▤</div>
@@ -723,7 +723,7 @@ const screens = {
     const canCreate = lists.length && tmpls.length && accs.length;
     return `
       <div class="screen">
-        <div class="head-row"><h2>Кампании</h2><button class="add-btn" data-action="campaign-new" ${canCreate?'':'disabled style="opacity:.4"'}>+</button></div>
+        <div class="head-row"><h2>Кампании</h2><button class="add-btn" data-action="campaign-new" ${canCreate?'':'disabled style="opacity:.4"'} title="Создать кампанию рассылки: список + шаблон + аккаунты + расписание">+</button></div>
         ${!canCreate ? `
           <div class="card" style="background:#fef3c7;color:#92400e;font-size:13px">
             Чтобы создать кампанию, нужно: ${!lists.length?'список лидов, ':''}${!tmpls.length?'шаблон, ':''}${!accs.length?'аккаунт':''}
@@ -980,7 +980,7 @@ const screens = {
       <div class="screen">
         <div class="head-row">
           <h2 style="font-size:18px">${escape(st.list_name || 'Список')}</h2>
-          <button class="add-btn" data-action="add-lead-to-list">+</button>
+          <button class="add-btn" data-action="add-lead-to-list" title="Добавить лида в этот список вручную">+</button>
         </div>
 
         <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
@@ -1061,7 +1061,7 @@ const screens = {
     const tmpls = st?.templates ?? [];
     return `
       <div class="screen">
-        <div class="head-row"><h2>Шаблоны и AI</h2><button class="add-btn" data-action="new-template">+</button></div>
+        <div class="head-row"><h2>Шаблоны и AI</h2><button class="add-btn" data-action="new-template" title="Создать новый шаблон сообщения для рассылки">+</button></div>
         <div class="section-title">AI-генератор</div>
         <button class="btn full" data-action="open-ai-composer">✦ Сгенерировать сообщения</button>
         <div class="section-title">Сохранённые шаблоны</div>
@@ -1241,7 +1241,7 @@ const screens = {
           <div class="avatar blue" style="width:36px;height:36px;font-size:14px">${initials(title)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')} · <span data-action="conv-bot-mode" data-id="${st.conv_id}" data-current="${st.bot_mode||'auto'}" style="cursor:pointer;color:${(st.bot_mode==='paused')?'#ef4444':(st.bot_mode==='human_only'?'#f59e0b':'#16a34a')};font-weight:500">${st.bot_mode==='paused'?'⏸ pause':st.bot_mode==='human_only'?'👤 human':'🤖 auto'}</span> · <span data-action="conv-guru-mode" data-id="${st.conv_id}" data-current="${st.guru_mode||'admin_approved'}" style="cursor:pointer;color:${(st.guru_mode==='off')?'#94a3b8':(st.guru_mode==='full_access'?'#dc2626':'#7c3aed')};font-weight:500">★ ${st.guru_mode==='off'?'off':st.guru_mode==='full_access'?'auto':'approve'}</span></div>
+            <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')} · <span data-action="conv-bot-mode" data-id="${st.conv_id}" data-current="${st.bot_mode||'auto'}" title="Бот-автоответчик: 🤖 auto = бот сам отвечает на FAQ, 👤 human = только человек, ⏸ pause = бот молчит. Клик переключает." style="cursor:pointer;color:${(st.bot_mode==='paused')?'#ef4444':(st.bot_mode==='human_only'?'#f59e0b':'#16a34a')};font-weight:500">${st.bot_mode==='paused'?'⏸ pause':st.bot_mode==='human_only'?'👤 human':'🤖 auto'}</span> · <span data-action="conv-guru-mode" data-id="${st.conv_id}" data-current="${st.guru_mode||'admin_approved'}" title="Guru-агент: ★ approve = Guru генерит черновик ответа, ты апруваешь · ★ auto = Guru сам отправляет (full-access) · ★ off = Guru молчит. Клик переключает." style="cursor:pointer;color:${(st.guru_mode==='off')?'#94a3b8':(st.guru_mode==='full_access'?'#dc2626':'#7c3aed')};font-weight:500">★ ${st.guru_mode==='off'?'off':st.guru_mode==='full_access'?'auto':'approve'}</span></div>
           </div>
           <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" style="font-size:16px">📅</button>
           <button class="icon-btn" data-action="conv-snooze" data-id="${st.conv_id}" title="Snooze (отложить)" style="font-size:16px">💤</button>
@@ -1278,7 +1278,7 @@ const screens = {
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
           <input id="reply-input" type="text" placeholder="Сообщение"
                  style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-size:15px">
-          <button class="btn" data-action="send-reply" data-id="${st.conv_id}" style="padding:10px 16px">→</button>
+          <button class="btn" data-action="send-reply" data-id="${st.conv_id}" title="Отправить сообщение" style="padding:10px 16px">→</button>
         </div>
       </div>`;
   },
@@ -1305,7 +1305,7 @@ const screens = {
     const statusColor = { new: 'cold', in_progress: 'warm', done: 'cold', rejected: 'hot' };
     return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Мои идеи</h2><button class="add-btn" data-action="goto-idea-submit">+</button></div>
+        <div class="head-row"><h2 style="font-size:18px">Мои идеи</h2><button class="add-btn" data-action="goto-idea-submit" title="Предложить идею улучшения приложения">+</button></div>
         ${ideas.length === 0 ? `
           <div class="empty">
             <div class="empty-ico">💡</div>
@@ -1507,7 +1507,7 @@ const screens = {
     const totalValue = deals.filter(d => !['Won','Lost'].includes(d.stage)).reduce((s,d)=>s+(d.value||0),0);
     return `
       <div class="screen">
-        <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="new-deal">+</button></div>
+        <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="new-deal" title="Создать новую сделку — стадия, сумма, ожидаемая дата закрытия">+</button></div>
         ${deals.length === 0 ? `
           <div class="empty"><div class="empty-ico">💼</div>
             <div class="empty-title">Нет сделок</div>
@@ -1583,7 +1583,7 @@ const screens = {
     const overdue = tasks.filter(t => !t.done && new Date(t.due_date) < new Date());
     return `
       <div class="screen">
-        <div class="head-row"><h2>Задачи</h2><button class="add-btn" data-action="new-task">+</button></div>
+        <div class="head-row"><h2>Задачи</h2><button class="add-btn" data-action="new-task" title="Добавить задачу с дедлайном">+</button></div>
         ${overdue.length ? `<div class="card" style="background:#fee2e2;color:#b91c1c;font-size:13px">⚠ Просрочено: ${overdue.length}</div>` : ''}
         ${tasks.length === 0 ? `
           <div class="empty"><div class="empty-ico">📋</div>
@@ -1618,7 +1618,7 @@ const screens = {
     const INTENT_LBL = { price:'💰 Цена', security:'🔒 Безопасность', integration:'🔌 Интеграция', competitor:'⚔ Конкуренты', timing:'⏱ Сроки', demo:'🎬 Демо', compliance:'⚖ Compliance', other:'📌 Другое'};
     return `
       <div class="screen">
-        <div class="head-row"><h2>База знаний</h2><button class="add-btn" data-action="new-kb">+</button></div>
+        <div class="head-row"><h2>База знаний</h2><button class="add-btn" data-action="new-kb" title="Добавить запись в базу знаний (FAQ для бота-автоответчика)">+</button></div>
         <div class="card" style="background:#dbeafe;color:#1e3a8a;font-size:12px">
           💡 Когда лид что-то спрашивает (цена, безопасность, конкуренты), AI auto-reply подсмотрит сюда и не будет выдумывать.
         </div>
@@ -1787,9 +1787,9 @@ const screens = {
         <textarea class="guru-draft" id="guru-draft-${a.id}" rows="3" ${a.status !== 'pending' ? 'disabled' : ''}>${escape(a.draft_text || '')}</textarea>
         ${a.status === 'pending' ? `
           <div class="guru-actions">
-            <button class="btn primary" onclick="guruApprove(${a.id})">✓ Approve & Send</button>
-            <button class="btn" onclick="guruEdit(${a.id})">Сохранить правки</button>
-            <button class="btn ghost" onclick="guruReject(${a.id})">Отклонить</button>
+            <button class="btn primary" onclick="guruApprove(${a.id})" title="Отправить черновик от твоего имени лиду">✓ Approve & Send</button>
+            <button class="btn" onclick="guruEdit(${a.id})" title="Сохранить правки текста (без отправки)">Сохранить правки</button>
+            <button class="btn ghost" onclick="guruReject(${a.id})" title="Отклонить черновик — не отправлять">Отклонить</button>
           </div>` : ''}
         ${a.error ? `<div class="guru-card-error">⚠️ ${escape(a.error)}</div>` : ''}
       </div>`;
@@ -1817,7 +1817,7 @@ const screens = {
       </div>
       <div class="guru-input-bar">
         <textarea id="guru-input" rows="2" placeholder="Задача для Guru…"></textarea>
-        <button class="btn primary" onclick="guruSend()">→</button>
+        <button class="btn primary" onclick="guruSend()" title="Отправить задачу Guru — он сгенерит черновик">→</button>
       </div>
     </div>`;
   },
@@ -1966,7 +1966,8 @@ async function loadSearchTool() {
   catch { render('tool_search', { accounts: [] }); }
 }
 
-async function loadDashboard() {
+async function loadDashboard(silent=false) {
+  if (silent && currentScreen !== 'dashboard') return;
   try {
     const [data, tasks] = await Promise.all([
       API.dashboard.get(),
@@ -1974,8 +1975,10 @@ async function loadDashboard() {
     ]);
     render('dashboard', { data, tasks });
   } catch (e) {
-    render('dashboard', { data: null, tasks: [] });
-    toast(`Не удалось загрузить дашборд: ${e.message}`);
+    if (!silent) {
+      render('dashboard', { data: null, tasks: [] });
+      toast(`Не удалось загрузить дашборд: ${e.message}`);
+    }
   }
 }
 
@@ -2002,8 +2005,9 @@ async function refreshBadges() {
 }
 
 async function loadGuru(silent=false) {
+  // Если юзер ушёл с экрана — тихо пропускаем, чтобы не ребрасывать его обратно
+  if (silent && currentScreen !== 'guru') return;
   if (!silent) {
-    // Не сбрасываем уже отрисованные сообщения, чтобы не ломать ввод
     if (currentScreen !== 'guru') render('guru', { messages: null, actions: [] });
   }
   try {
@@ -2060,6 +2064,8 @@ async function guruEdit(id) {
 }
 
 async function loadInbox(silent=false) {
+  // Тихий тик не должен ребрасывать с conv/любого другого экрана
+  if (silent && currentScreen !== 'inbox') return;
   if (!silent) render('inbox', { conversations: null });
   try {
     const conversations = await API.inbox.list();
@@ -3092,7 +3098,7 @@ document.addEventListener('click', (e) => {
       loadInbox();
       startPoll(() => { loadInbox(true); refreshBadges(); }, 15000);
     } else if (name === 'outreach') { render('outreach'); loadOutreachSummaries(); }
-    else if (name === 'dashboard') { loadDashboard(); startPoll(() => { loadDashboard(); refreshBadges(); }, 30000); }
+    else if (name === 'dashboard') { loadDashboard(); startPoll(() => { loadDashboard(true); refreshBadges(); }, 30000); }
     else if (name === 'guru') { loadGuru(); startPoll(() => loadGuru(true), 8000); }
     else                            render(name);
     return;
