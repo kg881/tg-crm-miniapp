@@ -1999,6 +1999,7 @@ async function loadSearchTool() {
   catch { render('tool_search', { accounts: [] }); }
 }
 
+let _dashHash = '';
 async function loadDashboard(silent=false) {
   if (silent && currentScreen !== 'dashboard') return;
   try {
@@ -2006,6 +2007,9 @@ async function loadDashboard(silent=false) {
       API.dashboard.get(),
       API.tasks.list('today').catch(() => []),
     ]);
+    const h = JSON.stringify([data, tasks?.map(t=>t.id+':'+t.text)]);
+    if (silent && h === _dashHash) return;
+    _dashHash = h;
     render('dashboard', { data, tasks });
   } catch (e) {
     if (!silent) {
@@ -2037,21 +2041,39 @@ async function refreshBadges() {
   } catch {}
 }
 
+let _guruHash = '';
+function _hashGuru(h) {
+  // Хешируем минимально-достаточный набор полей: id и status у actions, id у messages.
+  const m = (h.messages || []).map(x => x.id).join(',');
+  const a = (h.actions || []).map(x => `${x.id}:${x.status}:${(x.draft_text||'').length}`).join(',');
+  return `${m}|${a}`;
+}
+
 async function loadGuru(silent=false) {
-  // Если юзер ушёл с экрана — тихо пропускаем, чтобы не ребрасывать его обратно
   if (silent && currentScreen !== 'guru') return;
   if (!silent) {
     if (currentScreen !== 'guru') render('guru', { messages: null, actions: [] });
   }
   try {
     const h = await API.guru.history(60);
+    const newHash = _hashGuru(h);
+    if (silent && newHash === _guruHash) return;   // ничего не изменилось — не дёргаем DOM
+    _guruHash = newHash;
     const draft = document.getElementById('guru-input')?.value || '';
+    const focused = document.activeElement?.id;
+    const caret = focused === 'guru-input' ? document.activeElement.selectionStart : null;
     render('guru', { messages: h.messages, actions: h.actions, _draft: draft });
     requestAnimationFrame(() => {
       const log = document.getElementById('guru-log');
       if (log) log.scrollTop = log.scrollHeight;
       const inp = document.getElementById('guru-input');
-      if (inp && draft) inp.value = draft;
+      if (inp && draft) {
+        inp.value = draft;
+        if (focused === 'guru-input') {
+          inp.focus();
+          if (caret != null) inp.setSelectionRange(caret, caret);
+        }
+      }
     });
   } catch (e) {
     if (!silent) {
@@ -2096,12 +2118,19 @@ async function guruEdit(id) {
   catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
+let _inboxHash = '';
+function _hashInbox(convs) {
+  return convs.map(c => `${c.id}:${c.unread?1:0}:${c.last_message_at}:${(c.last_text||'').length}`).join(',');
+}
+
 async function loadInbox(silent=false) {
-  // Тихий тик не должен ребрасывать с conv/любого другого экрана
   if (silent && currentScreen !== 'inbox') return;
   if (!silent) render('inbox', { conversations: null });
   try {
     const conversations = await API.inbox.list();
+    const newHash = _hashInbox(conversations);
+    if (silent && newHash === _inboxHash) return;
+    _inboxHash = newHash;
     const filter = screenState.inbox?.filter || 'all';
     render('inbox', { conversations, filter });
   } catch (e) {
