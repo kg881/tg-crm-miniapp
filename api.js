@@ -160,6 +160,10 @@ const API = {
     badges: () => API.req('GET', '/api/dashboard/badges'),
   },
 
+  billing: {
+    me: () => API.req('GET', '/api/billing/me'),
+  },
+
   guru: {
     chat:      (text)              => API.req('POST', '/api/guru/chat', { text }),
     history:   (limit=50)          => API.req('GET',  `/api/guru/history?limit=${limit}`),

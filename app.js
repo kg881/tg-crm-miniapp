@@ -1895,6 +1895,20 @@ const screens = {
   guru: (st) => {
     const msgs = st?.messages;
     const actions = st?.actions || [];
+    if (st?.locked) {
+      return `<div class="screen">
+        <div class="head-row"><h2>★ Guru</h2></div>
+        <div class="empty">
+          <div class="empty-ico" data-pix="ninja"></div>
+          <div class="empty-title">Guru — для тарифов RONIN и SENSEI</div>
+          <div class="muted small" style="margin-top:6px;line-height:1.5">
+            AI-агент пишет от твоего имени, обрабатывает входящие, генерит черновики ответов лидам.<br>
+            На BUSHI (бесплатном) недоступен.
+          </div>
+          <button class="btn primary full" style="margin-top:14px" data-action="goto-pricing">Посмотреть тарифы</button>
+        </div>
+      </div>`;
+    }
     if (msgs === null) {
       return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю Guru</div></div></div>`;
     }
@@ -1944,6 +1958,64 @@ const screens = {
     </div>`;
   },
 
+  // ---------- PRICING ----------
+  pricing: (st) => {
+    const me = st?.me;
+    if (!me) return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю</div></div></div>`;
+    const tierMeta = {
+      free:   { name: 'BUSHI',  sub: 'Старт', color: 'paper', accent: 'var(--ink-3)',
+                perks: ['30 сообщений / месяц', 'Импорт лидов из CSV', 'Запуск кампаний', 'Inbox без AI'] },
+      ronin:  { name: 'RONIN',  sub: 'Активный аутрич', color: 'gold', accent: 'var(--gold)',
+                perks: ['1 500 сообщений / месяц', 'AI-подсказки в инбоксе', 'Guru: admin-approved', 'Все CRM-функции'] },
+      sensei: { name: 'SENSEI', sub: 'Полная мощь', color: 'plum', accent: 'var(--plum)',
+                perks: ['Безлимит сообщений', 'Guru: full-access (auto-send)', 'Priority API', 'Ачивка «Дракон»'] },
+    };
+    const limit = me.limits.monthly_messages;
+    const limitLabel = me.usage.unlimited ? '∞' : limit;
+    const cardHTML = (t) => {
+      const meta = tierMeta[t.id];
+      const isCurrent = me.tier === t.id;
+      return `
+        <div class="card pricing-card" style="border-left:6px solid ${meta.accent}${isCurrent?';box-shadow:5px 5px 0 var(--mint)':''}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="card-title" style="font-size:18px">${meta.name}</div>
+              <div class="muted small">${meta.sub}</div>
+            </div>
+            ${isCurrent ? '<span class="pill mint">ТЕКУЩИЙ</span>' : ''}
+          </div>
+          <div class="num" style="font-weight:700;font-size:30px;margin:10px 0;color:var(--ink)">${escape(t.price)}</div>
+          <ul style="list-style:none;padding:0;margin:8px 0 12px">
+            ${meta.perks.map(p => `<li style="padding:5px 0;display:flex;gap:10px;align-items:center;font-size:14px">
+              <span data-pix="check" style="display:inline-block;width:14px;height:14px;color:var(--mint);flex:0 0 14px"></span>
+              <span>${p}</span>
+            </li>`).join('')}
+          </ul>
+          ${!isCurrent && t.id !== 'free' ? `<button class="btn primary full" data-action="pricing-contact" data-tier="${t.id}">Подключить · @k_gaft</button>` : ''}
+        </div>`;
+    };
+    const usageBar = `
+      <div class="card">
+        <div class="usage-label">Использовано в этом месяце</div>
+        <div class="usage-num">
+          <span class="num">${me.usage.sent_this_month}</span>
+          <span class="muted small"> / ${limitLabel}</span>
+        </div>
+        ${me.usage.unlimited ? '' : `<div class="progress" style="margin-top:8px"><div style="width:${Math.min(100, me.usage.percent)}%"></div></div>`}
+        ${!me.usage.unlimited && me.usage.percent >= 80 ? `<div class="muted small" style="margin-top:6px;color:var(--red)">⚠ скоро лимит — обнови тариф</div>` : ''}
+      </div>`;
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>Тарифы</h2><div class="pill" style="background:${tierMeta[me.tier].accent};color:var(--ink);font-size:11px">${tierMeta[me.tier].name}</div></div>
+        ${usageBar}
+        ${me.tiers.map(cardHTML).join('')}
+        <div class="muted small" style="text-align:center;margin-top:12px;padding:0 16px">
+          Оплата мануальная: жми «Подключить» — откроется чат с @k_gaft.
+          Тариф активируется в течение часа.
+        </div>
+      </div>`;
+  },
+
   // ---------- MORE ----------
   more: () => `
     <div class="screen">
@@ -1952,6 +2024,11 @@ const screens = {
       <div class="list-item" data-action="goto-profile">
         <div class="list-ico" data-pix="user"></div>
         <div class="list-text"><div class="list-title">@${escape(ME.username || 'без юзернейма')}</div><div class="list-sub">Профиль · Calendly-ссылка</div></div>
+        <div class="list-arrow">›</div>
+      </div>
+      <div class="list-item" data-action="goto-pricing">
+        <div class="list-ico pix-gold" data-pix="vip"></div>
+        <div class="list-text"><div class="list-title">Тарифы</div><div class="list-sub">BUSHI · RONIN · SENSEI</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="section-title">AI</div>
@@ -2144,6 +2221,16 @@ async function loadGuru(silent=false) {
   if (!silent) {
     if (currentScreen !== 'guru') render('guru', { messages: null, actions: [] });
   }
+  // Сначала проверим тариф — Guru только для платных
+  if (!silent) {
+    try {
+      const me = await API.billing.me();
+      if (!me.limits.guru) {
+        render('guru', { locked: true });
+        return;
+      }
+    } catch {}
+  }
   try {
     const h = await API.guru.history(60);
     const newHash = _hashGuru(h);
@@ -2273,6 +2360,16 @@ async function loadStoplist() {
   try { render('stoplist', { items: await API.stoplist.list() }); }
   catch (e) { render('stoplist', { items: [] }); toast(`Ошибка: ${e.message}`); }
 }
+async function loadPricing() {
+  try {
+    const me = await API.billing.me();
+    render('pricing', { me });
+  } catch (e) {
+    render('pricing', { me: null });
+    toast(`Не удалось загрузить тарифы: ${e.message}`);
+  }
+}
+
 async function loadProfile() {
   try { render('profile', { profile: await API.profile.get() }); }
   catch (e) { render('profile', { profile: {} }); toast(`Ошибка: ${e.message}`); }
@@ -2960,7 +3057,15 @@ async function handleAction(action, el) {
       try {
         const r = await API.inbox.suggest(cid);
         inp.value = r.suggestion || '';
-      } catch (e) { inp.value = ''; toast(`AI ошибка: ${e.message}\nПроверьте ANTHROPIC_API_KEY в .env`); }
+      } catch (e) {
+        inp.value = '';
+        if (String(e.message).includes('402') || String(e.message).includes('ai_requires')) {
+          toast('AI-подсказки в тарифах RONIN и SENSEI');
+          loadPricing();
+        } else {
+          toast(`AI ошибка: ${e.message}`);
+        }
+      }
       finally { inp.disabled = false; inp.focus(); }
       break;
     }
@@ -3009,6 +3114,8 @@ async function handleAction(action, el) {
     case 'goto-analytics': loadAnalytics(); break;
     case 'goto-stoplist':  loadStoplist(); break;
     case 'goto-profile':   loadProfile(); break;
+    case 'goto-pricing':   loadPricing(); break;
+    case 'pricing-contact': openTgUser('k_gaft'); break;
 
     // Profile
     case 'save-profile': {
