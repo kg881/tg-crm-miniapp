@@ -77,6 +77,7 @@ const PIX = {
   comment:     '<path d="M2 2h12v9H6l-3 3v-3H2z"/>',
   paper_plane: '<path d="M2 13L14 2l-1 12-5-3z"/>',
   signal:      '<rect x="2" y="11" width="2" height="3"/><rect x="5" y="9" width="2" height="5"/><rect x="8" y="7" width="2" height="7"/><rect x="11" y="4" width="2" height="10"/>',
+  broadcast:   '<rect x="2" y="6" width="2" height="4"/><rect x="4" y="4" width="2" height="8"/><rect x="6" y="2" width="2" height="12"/><rect x="9" y="6" width="6" height="2"/><rect x="9" y="9" width="4" height="2"/><rect x="9" y="3" width="4" height="2"/>',
   mobile:      '<path d="M4 1h8v14H4zm1 1v10h6V2zm2 11h2v1H7z"/>',
   dot3:        '<rect x="2" y="7" width="3" height="3"/><rect x="7" y="7" width="3" height="3"/><rect x="12" y="7" width="3" height="3"/>',
   power:       '<path d="M7 2h2v6H7zm-3 1c-2 1-3 3-3 5 0 3 3 6 7 6s7-3 7-6c0-2-1-4-3-5l-1 2c1 1 2 2 2 3 0 2-2 4-5 4s-5-2-5-4c0-1 1-2 2-3z"/>',
