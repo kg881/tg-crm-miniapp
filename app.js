@@ -4,6 +4,94 @@ if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('secondary_bg_color'); }
 const ME = tg?.initDataUnsafe?.user || { first_name: 'Гость', username: 'guest' };
 const SUPPORT = '@k_gaft';   // Основной аккаунт владельца — поддержка
 
+// ===== Hydrate pix-icons =====
+// Заполняем все [data-pix] плейсхолдеры (tabbar / list-ico / btn-ico) SVG из библиотеки.
+function _hydratePixIcons(root = document) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('[data-pix]:empty').forEach(el => {
+    const name = el.dataset.pix;
+    if (!window.PIX || !window.PIX[name]) return;
+    el.innerHTML = `<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor">${window.PIX[name]}</svg>`;
+  });
+}
+
+// ===== Pixel icon library =====
+// 16×16 pixel SVG paths. Все одноцветные, цвет = currentColor → берётся из родителя.
+// Используй: pixIcon('home') / pixIcon('mail','red',32). Цветовые схемы: gold/red/mint/plum/sky/ink/paper/ghost.
+const PIX = {
+  home:        '<path d="M8 1L1 8h2v6h4v-4h2v4h4V8h2z"/>',
+  dashboard:   '<rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>',
+  menu:        '<rect x="2" y="3" width="12" height="2"/><rect x="2" y="7" width="12" height="2"/><rect x="2" y="11" width="12" height="2"/>',
+  list:        '<rect x="2" y="3" width="2" height="2"/><rect x="6" y="3" width="8" height="2"/><rect x="2" y="7" width="2" height="2"/><rect x="6" y="7" width="8" height="2"/><rect x="2" y="11" width="2" height="2"/><rect x="6" y="11" width="8" height="2"/>',
+  grid:        '<rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>',
+  back:        '<path d="M2 8L7 3v3h7v4H7v3z"/>',
+  forward:     '<path d="M14 8L9 3v3H2v4h7v3z"/>',
+  arrow_up:    '<path d="M8 2L3 7h3v7h4V7h3z"/>',
+  search:      '<path d="M2 2h7v7H2z M3 3v5h5V3z" fill-rule="evenodd"/><rect x="9" y="9" width="2" height="2"/><rect x="11" y="11" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/>',
+  filter:      '<path d="M2 3h12v2l-4 4v5l-4-2v-3L2 5z"/>',
+  send:        '<path d="M2 13L14 2l-1 12-5-3z"/>',
+  mail:        '<path d="M2 3h12v10H2zm1 2v6h10V5l-5 4z"/>',
+  inbox:       '<path d="M2 8h12v6H2z M4 2v6h2v2h4V8h2V2z" fill-rule="evenodd"/>',
+  phone:       '<path d="M3 2h3v3l-1 1 2 4 1-1h3v3l-3 2c-3 0-9-6-9-9z"/>',
+  user:        '<rect x="6" y="2" width="4" height="4"/><rect x="3" y="8" width="10" height="6"/>',
+  user_add:    '<rect x="5" y="2" width="4" height="4"/><rect x="2" y="8" width="10" height="6"/><rect x="12" y="9" width="3" height="1"/><rect x="13" y="7" width="1" height="5"/>',
+  users:       '<rect x="2" y="3" width="3" height="3"/><rect x="10" y="3" width="3" height="3"/><rect x="1" y="8" width="5" height="6"/><rect x="9" y="8" width="6" height="6"/>',
+  ninja:       '<path d="M4 2h8v2H4zm-1 2h10v2H3zm1 2h8v2H4zm0 2h8v6H4z"/>',
+  handshake:   '<path d="M3 7l3-3 3 3 3-3 3 3-3 3-3-3-3 3z"/>',
+  vip:         '<path d="M2 4h2v8H2zm4 0h2l1 5 1-5h2v8H10v-5l-1 4H8l-1-4v5H6z"/>',
+  contact_book:'<path d="M3 2h10v12H3zm1 1v10h8V3zm2 2h4v2H6zm0 3h4v1H6z"/>',
+  play:        '<path d="M3 2l11 6-11 6z"/>',
+  pause:       '<rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/>',
+  stop:        '<rect x="3" y="3" width="10" height="10"/>',
+  refresh:     '<path d="M2 7h6V3l4 4-4 4V8H4M14 9h-6v4l-4-4 4-4v3h6"/>',
+  plus:        '<rect x="7" y="3" width="2" height="10"/><rect x="3" y="7" width="10" height="2"/>',
+  minus:       '<rect x="3" y="7" width="10" height="2"/>',
+  check:       '<path d="M2 8l1-1 3 3 7-7 1 1-8 8z"/>',
+  close:       '<path d="M3 4l1-1 4 4 4-4 1 1-4 4 4 4-1 1-4-4-4 4-1-1 4-4z"/>',
+  edit:        '<path d="M11 1l3 3-2 2-3-3zM10 4L2 12v2h2l8-8z"/>',
+  trash:       '<path d="M5 2h6v2h3v2H2V4h3zm-2 5h10l-1 7H4z"/>',
+  settings:    '<path d="M7 1h2v2h2l1 1v2h2v2h-2v2l-1 1h-2v2H7v-2H5l-1-1V8H2V6h2V4l1-1h2zm0 4l-1 1v4l1 1h2l1-1V6l-1-1z"/>',
+  fire:        '<path d="M8 2l3 3-1 2 2 2-1 4H5l-1-4 2-2-1-2z"/>',
+  lightning:   '<path d="M9 1L3 9h3l-2 6 8-9H9z"/>',
+  calendar:    '<path d="M3 3h10v3H3zm-1 3h12v8H2zm2 2v2h2V8zm3 0v2h2V8zm3 0v2h2V8z"/>',
+  clock:       '<path d="M8 2c3 0 6 3 6 6s-3 6-6 6-6-3-6-6 3-6 6-6zm0 2c-2 0-4 2-4 4s2 4 4 4 4-2 4-4-2-4-4-4zm0 1v3l2 2"/>',
+  ban:         '<path d="M8 2c3 0 6 3 6 6s-3 6-6 6-6-3-6-6 3-6 6-6zm0 2c-1 0-2 0-3 1l6 6c1-1 1-2 1-3 0-2-2-4-4-4zM4 6c-1 1-1 2-1 2 0 2 2 4 4 4 1 0 2 0 3-1z" fill-rule="evenodd"/>',
+  attach:      '<path d="M11 2c2 0 3 2 2 3l-7 7c-1 1-3 1-3 0 0-1 0-2 1-3l5-5"/>',
+  spark:       '<path d="M7 1h2v6h6v2H9v6H7V9H1V7h6z"/>',
+  idea:        '<path d="M5 2h6v6l-2 2v2H7v-2L5 8zm2 11h2v1H7z"/>',
+  analytics:   '<rect x="2" y="9" width="3" height="5"/><rect x="6" y="6" width="3" height="8"/><rect x="10" y="3" width="3" height="11"/>',
+  brain:       '<path d="M5 3h6v2h1v6h-1v2H5v-2H4V5h1z"/>',
+  forward_msg: '<path d="M14 2v6h-2V5L4 13l-2-2 8-8H6V2z"/>',
+  qr:          '<rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="2" height="2"/><rect x="13" y="9" width="2" height="2"/><rect x="9" y="13" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/>',
+  file:        '<path d="M3 1h7l3 3v11H3z M10 1v3h3" fill-rule="evenodd"/>',
+  folder:      '<path d="M2 4h5l1 1h6v9H2z"/>',
+  info:        '<path d="M7 2h2v2H7zM6 5h3v6h1v2H5v-2h1V7H6z"/>',
+  support:     '<path d="M5 4h2c0-1 1-2 2-2s2 1 2 2-2 2-2 4H7c0-2 2-3 2-3 0-1-1-1-1-1s-1 0-1 1zm2 7h2v2H7z"/>',
+  snooze:      '<path d="M3 4h10v2l-7 5h7v3H3v-2l7-5H3z"/>',
+  bell:        '<path d="M6 2h4v1l1 1v6l1 2H4l1-2V4l1-1zm1 12h2v1H7z"/>',
+  star:        '<path d="M8 2l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z"/>',
+  briefcase:   '<path d="M5 2h6v2h4v3H1V4h4zM1 8h14v6H1z M6 4V3h4v1"/>',
+  target:      '<path d="M8 2c3 0 6 3 6 6s-3 6-6 6-6-3-6-6 3-6 6-6zm0 2c-2 0-4 2-4 4s2 4 4 4 4-2 4-4-2-4-4-4zm0 2c-1 0-2 1-2 2s1 2 2 2 2-1 2-2-1-2-2-2z"/>',
+  scan:        '<path d="M1 1h4v2H3v2H1zm10 0h4v4h-2V3h-2zM1 11h2v2h2v2H1zm12 0h2v4h-4v-2h2zm-9-3h8v1H4z"/>',
+  hashtag:     '<path d="M5 2h2l-1 4h2l1-4h2l-1 4h3v2h-3l-1 2h3v2h-3l-1 4H6l1-4H5l-1 4H2l1-4H0v-2h3l1-2H1V6h3z"/>',
+  comment:     '<path d="M2 2h12v9H6l-3 3v-3H2z"/>',
+  paper_plane: '<path d="M2 13L14 2l-1 12-5-3z"/>',
+  signal:      '<rect x="2" y="11" width="2" height="3"/><rect x="5" y="9" width="2" height="5"/><rect x="8" y="7" width="2" height="7"/><rect x="11" y="4" width="2" height="10"/>',
+  mobile:      '<path d="M4 1h8v14H4zm1 1v10h6V2zm2 11h2v1H7z"/>',
+  dot3:        '<rect x="2" y="7" width="3" height="3"/><rect x="7" y="7" width="3" height="3"/><rect x="12" y="7" width="3" height="3"/>',
+  power:       '<path d="M7 2h2v6H7zm-3 1c-2 1-3 3-3 5 0 3 3 6 7 6s7-3 7-6c0-2-1-4-3-5l-1 2c1 1 2 2 2 3 0 2-2 4-5 4s-5-2-5-4c0-1 1-2 2-3z"/>',
+  globe:       '<path d="M8 2c3 0 6 3 6 6s-3 6-6 6-6-3-6-6 3-6 6-6zm0 1c-1 1-2 3-2 5s1 4 2 5c1-1 2-3 2-5s-1-4-2-5zm-3 1l1 1c0 1 0 2 1 3H4l1-4zm6 0l1 4h-3c1-1 1-2 1-3z"/>',
+};
+
+// Экспонируем PIX в window для _hydratePixIcons
+window.PIX = PIX;
+
+// pixIcon(name, color='gold', size=36) → 'gold','red','mint','plum','sky','ink','paper','ghost'
+function pixIcon(name, color = 'gold', size = 36) {
+  const inner = PIX[name] || PIX.dashboard;
+  return `<span class="pix-icon pix-${color}" style="width:${size}px;height:${size}px"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">${inner}</svg></span>`;
+}
+
 // ===== Helpers =====
 const $ = (sel) => document.querySelector(sel);
 const initials = (n) => (n || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
@@ -215,20 +303,20 @@ function accountsFabHTML() {
   return `
     <div class="fab-wrap" id="acc-fab">
       <div class="fab-action" data-action="fab-forward" title="Форварднуть сообщение из ТГ — автоматически создаст лид с этим контактом">
-        <span class="fab-label">Форварднуть сообщение ⤴</span>
-        <button class="fab-mini" title="Форварднуть сообщение из ТГ — автоматически создаст лид с этим контактом">⤴</button>
+        <span class="fab-label">Форварднуть сообщение</span>
+        <button class="fab-mini" title="Форварднуть сообщение из ТГ — автоматически создаст лид с этим контактом" data-pix="forward_msg"></button>
       </div>
       <div class="fab-action" data-action="fab-sync" title="Синхронизировать папки Telegram — импорт всех чатов из выбранных папок">
         <span class="fab-label accent">Синк ТГ-папок</span>
-        <button class="fab-mini" title="Синхронизировать папки Telegram — импорт всех чатов из выбранных папок" style="background:var(--accent);color:#fff;border-color:transparent">▦</button>
+        <button class="fab-mini" title="Синхронизировать папки Telegram — импорт всех чатов из выбранных папок" data-pix="refresh" style="background:var(--gold)"></button>
       </div>
       <div class="fab-action" data-action="fab-qr" title="Подключить новый TG-аккаунт через QR-код">
         <span class="fab-label">Сканировать QR</span>
-        <button class="fab-mini" title="Подключить новый TG-аккаунт через QR-код">▣</button>
+        <button class="fab-mini" title="Подключить новый TG-аккаунт через QR-код" data-pix="qr"></button>
       </div>
       <div class="fab-action" data-action="fab-manual" title="Добавить TG-аккаунт по номеру + код подтверждения">
         <span class="fab-label">Добавить вручную</span>
-        <button class="fab-mini" title="Добавить TG-аккаунт по номеру + код подтверждения">✎</button>
+        <button class="fab-mini" title="Добавить TG-аккаунт по номеру + код подтверждения" data-pix="edit"></button>
       </div>
       <button class="fab-main" data-action="fab-toggle" title="Меню добавления (аккаунт / форвард / синк папок)">+</button>
     </div>
@@ -256,7 +344,7 @@ const screens = {
     if (!d) return `
       <div class="screen">
         <div class="head-row"><h2>Оя ё, ${escape(ME.first_name)}</h2></div>
-        <div class="empty"><div class="empty-ico">⚀</div><div class="empty-title">Загружаю данные</div></div>
+        <div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю данные</div></div>
       </div>`;
     const trendSent = d.sent_yesterday ? (d.sent_today >= d.sent_yesterday ? '↑' : '↓') + ` vs вчера ${d.sent_yesterday}` : 'первый день';
     const trendDirSent = d.sent_yesterday ? (d.sent_today >= d.sent_yesterday ? '' : ' down') : '';
@@ -352,54 +440,54 @@ const screens = {
       <div class="head-row"><h2>Аутрич</h2></div>
       <div class="section-title">Запуск кампании</div>
       <div class="list-item" data-action="goto-accounts">
-        <div class="list-ico">⚇</div>
+        <div class="list-ico" data-pix="phone"></div>
         <div class="list-text"><div class="list-title">TG-аккаунты</div><div class="list-sub" id="accounts-summary">Загружаю…</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-lists">
-        <div class="list-ico">▤</div>
+        <div class="list-ico" data-pix="users"></div>
         <div class="list-text"><div class="list-title">Списки лидов</div><div class="list-sub" id="lists-summary">Загружаю…</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-templates">
-        <div class="list-ico">✉</div>
+        <div class="list-ico" data-pix="mail"></div>
         <div class="list-text"><div class="list-title">Шаблоны и AI</div><div class="list-sub" id="templates-summary">Загружаю…</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-campaigns">
-        <div class="list-ico">▶</div>
+        <div class="list-ico" data-pix="broadcast"></div>
         <div class="list-text"><div class="list-title">Кампании</div><div class="list-sub" id="campaigns-summary">Загружаю…</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="section-title">Инструменты</div>
       <div class="list-item" data-action="parse-group">
-        <div class="list-ico">⚡</div>
+        <div class="list-ico" data-pix="lightning"></div>
         <div class="list-text"><div class="list-title">Парсер чатов</div><div class="list-sub">Собрать участников Telegram-чата</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="find-groups">
-        <div class="list-ico">⌕</div>
+        <div class="list-ico" data-pix="search"></div>
         <div class="list-text"><div class="list-title">Поиск чатов</div><div class="list-sub">По ключевым словам в сообщениях</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="section-title">CRM</div>
       <div class="list-item" data-action="goto-deals">
-        <div class="list-ico">💼</div>
+        <div class="list-ico" data-pix="briefcase"></div>
         <div class="list-text"><div class="list-title">Сделки</div><div class="list-sub">Pipeline по лидам с values и close-date</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-kb">
-        <div class="list-ico">🧠</div>
+        <div class="list-ico" data-pix="brain"></div>
         <div class="list-text"><div class="list-title">База знаний</div><div class="list-sub">Canned-ответы для AI: цена, безопасность, конкуренты</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-analytics">
-        <div class="list-ico">📊</div>
+        <div class="list-ico" data-pix="analytics"></div>
         <div class="list-text"><div class="list-title">Аналитика</div><div class="list-sub">Reply rate по шаблонам и аккаунтам</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-stoplist">
-        <div class="list-ico">🚫</div>
+        <div class="list-ico" data-pix="ban"></div>
         <div class="list-text"><div class="list-title">Стоп-лист</div><div class="list-sub">Лиды, которым НЕ слать (opt-out)</div></div>
         <div class="list-arrow">›</div>
       </div>
@@ -415,7 +503,7 @@ const screens = {
         <div class="head-row"><h2>TG-аккаунты</h2></div>
         ${accs.length === 0 ? `
           <div class="empty">
-            <div class="empty-ico">⚇</div>
+            <div class="empty-ico" data-pix="phone"></div>
             <div class="empty-title">Подключите первый аккаунт</div>
             <div>Нужен номер с активным Telegram. Можно добавить прокси.</div>
             <button class="btn" style="margin-top:16px" data-action="add-account">Подключить аккаунт</button>
@@ -642,7 +730,7 @@ const screens = {
         <div class="head-row"><h2>Списки лидов</h2><button class="add-btn" data-action="upload-csv" title="Загрузить CSV с лидами (имя, username, телефон, заметки)">+</button></div>
         ${lists.length === 0 ? `
           <div class="empty">
-            <div class="empty-ico">▤</div>
+            <div class="empty-ico" data-pix="users"></div>
             <div class="empty-title">Нет списков</div>
             <div>Загрузите CSV или создайте пустой и добавляйте лидов руками</div>
             <div style="display:flex;gap:6px;margin-top:16px;justify-content:center">
@@ -723,7 +811,7 @@ const screens = {
           </div>
         ` : ''}
         ${camps.length === 0 ? `
-          <div class="empty"><div class="empty-ico">▶</div>
+          <div class="empty"><div class="empty-ico" data-pix="mail"></div>
             <div class="empty-title">Нет кампаний</div>
             <div>Запустите первую — выберите список, шаблон и аккаунты</div>
             ${canCreate?'<button class="btn" style="margin-top:16px" data-action="campaign-new">Создать кампанию</button>':''}
@@ -1059,7 +1147,7 @@ const screens = {
         <button class="btn full" data-action="open-ai-composer">✦ Сгенерировать сообщения</button>
         <div class="section-title">Сохранённые шаблоны</div>
         ${tmpls.length === 0 ? `
-          <div class="empty"><div class="empty-ico">✉</div>
+          <div class="empty"><div class="empty-ico" data-pix="broadcast"></div>
             <div class="empty-title">Нет шаблонов</div>
             <div>Сохраняйте проверенные сообщения и ответы — будут под рукой во всех кампаниях.</div>
             <button class="btn" style="margin-top:16px" data-action="new-template">Создать шаблон</button>
@@ -1125,10 +1213,10 @@ const screens = {
     const filter = st?.filter || 'all';
     if (convs === null) return `
       <div class="screen"><div class="head-row"><h2>Inbox</h2></div>
-      <div class="empty"><div class="empty-ico">…</div><div class="empty-title">Загружаю</div></div></div>`;
+      <div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю</div></div></div>`;
     if (convs.length === 0) return `
       <div class="screen"><div class="head-row"><h2>Inbox</h2></div>
-      <div class="empty"><div class="empty-ico">✉</div>
+      <div class="empty"><div class="empty-ico" data-pix="broadcast"></div>
         <div class="empty-title">Пока никто не ответил</div>
         <div>Запустите кампанию — ответы со всех ваших аккаунтов будут падать сюда.</div>
       </div></div>`;
@@ -1184,7 +1272,7 @@ const screens = {
           `).join('')}
         </div>
         `}
-        ${display.length === 0 ? '<div class="empty"><div class="empty-ico">∅</div><div class="empty-title">Ничего не найдено</div></div>' :
+        ${display.length === 0 ? '<div class="empty"><div class="empty-ico" data-pix="search"></div><div class="empty-title">Ничего не найдено</div></div>' :
           display.map(c => {
             const checked = selected.has(c.id);
             const tagsHtml = (c.tags || []).slice(0, 3).map(t => `<span class="pill" style="font-size:9px;padding:2px 6px">${escape(t)}</span>`).join(' ');
@@ -1239,10 +1327,10 @@ const screens = {
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
             <div style="font-size:12px;color:var(--text-muted)">${escape(subtitle || 'через CRM')} · <span data-action="conv-bot-mode" data-id="${st.conv_id}" data-current="${st.bot_mode||'auto'}" title="Бот-автоответчик: 🤖 auto = бот сам отвечает на FAQ, 👤 human = только человек, ⏸ pause = бот молчит. Клик переключает." style="cursor:pointer;color:${(st.bot_mode==='paused')?'#ef4444':(st.bot_mode==='human_only'?'#f59e0b':'#16a34a')};font-weight:500">${st.bot_mode==='paused'?'⏸ pause':st.bot_mode==='human_only'?'👤 human':'🤖 auto'}</span> · <span data-action="conv-guru-mode" data-id="${st.conv_id}" data-current="${st.guru_mode||'admin_approved'}" title="Guru-агент: ★ approve = Guru генерит черновик ответа, ты апруваешь · ★ auto = Guru сам отправляет (full-access) · ★ off = Guru молчит. Клик переключает." style="cursor:pointer;color:${(st.guru_mode==='off')?'#94a3b8':(st.guru_mode==='full_access'?'#dc2626':'#7c3aed')};font-weight:500">★ ${st.guru_mode==='off'?'off':st.guru_mode==='full_access'?'auto':'approve'}</span></div>
           </div>
-          <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" style="font-size:16px">📅</button>
-          <button class="icon-btn" data-action="conv-snooze" data-id="${st.conv_id}" title="Snooze (отложить)" style="font-size:16px">💤</button>
-          <button class="icon-btn" data-action="conv-stoplist" data-tg="${st.lead_tg_id || ''}" title="В стоп-лист" style="font-size:16px">🚫</button>
-          <button class="icon-btn" data-action="conv-delete" data-id="${st.conv_id}" title="Удалить переписку" style="font-size:18px;color:#ef4444">🗑</button>
+          <button class="icon-btn" data-action="conv-calendly" data-id="${st.conv_id}" title="Прислать Calendly-ссылку" data-pix="calendar"></button>
+          <button class="icon-btn" data-action="conv-snooze" data-id="${st.conv_id}" title="Snooze (отложить)" data-pix="snooze"></button>
+          <button class="icon-btn" data-action="conv-stoplist" data-tg="${st.lead_tg_id || ''}" title="В стоп-лист" data-pix="ban"></button>
+          <button class="icon-btn" data-action="conv-delete" data-id="${st.conv_id}" title="Удалить переписку" data-pix="trash" style="color:var(--red)"></button>
         </div>
         <div id="msg-list" class="conv-body">
           ${msgs.map(m => {
@@ -1268,8 +1356,8 @@ const screens = {
         </div>
         ` : ''}
         <div class="conv-input">
-          <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Файл" style="font-size:22px">📎</button>
-          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка" style="font-size:18px;color:var(--accent)">✨</button>
+          <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Файл" data-pix="attach"></button>
+          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка" data-pix="spark" style="color:var(--plum)"></button>
           <input type="file" id="attach-input" style="display:none"
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
           <input id="reply-input" type="text" placeholder="Сообщение"
@@ -1304,7 +1392,7 @@ const screens = {
         <div class="head-row"><h2 style="font-size:18px">Мои идеи</h2><button class="add-btn" data-action="goto-idea-submit" title="Предложить идею улучшения приложения">+</button></div>
         ${ideas.length === 0 ? `
           <div class="empty">
-            <div class="empty-ico">💡</div>
+            <div class="empty-ico" data-pix="idea"></div>
             <div class="empty-title">Идей пока нет</div>
             <button class="btn" style="margin-top:16px" data-action="goto-idea-submit">Оставить первую</button>
           </div>
@@ -1505,7 +1593,7 @@ const screens = {
       <div class="screen">
         <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="new-deal" title="Создать новую сделку — стадия, сумма, ожидаемая дата закрытия">+</button></div>
         ${deals.length === 0 ? `
-          <div class="empty"><div class="empty-ico">💼</div>
+          <div class="empty"><div class="empty-ico" data-pix="briefcase"></div>
             <div class="empty-title">Нет сделок</div>
             <div>Сделка = лид + value + стейдж + close-date. Сюда складывай тех, с кем уже идёт реальный разговор о покупке.</div>
             <button class="btn" style="margin-top:16px" data-action="new-deal">Создать сделку</button>
@@ -1582,7 +1670,7 @@ const screens = {
         <div class="head-row"><h2>Задачи</h2><button class="add-btn" data-action="new-task" title="Добавить задачу с дедлайном">+</button></div>
         ${overdue.length ? `<div class="card" style="background:#fee2e2;color:#b91c1c;font-size:13px">⚠ Просрочено: ${overdue.length}</div>` : ''}
         ${tasks.length === 0 ? `
-          <div class="empty"><div class="empty-ico">📋</div>
+          <div class="empty"><div class="empty-ico" data-pix="list"></div>
             <div class="empty-title">Нет открытых задач</div>
             <button class="btn" style="margin-top:16px" data-action="new-task">Добавить задачу</button>
           </div>
@@ -1619,7 +1707,7 @@ const screens = {
           💡 Когда лид что-то спрашивает (цена, безопасность, конкуренты), AI auto-reply подсмотрит сюда и не будет выдумывать.
         </div>
         ${items.length === 0 ? `
-          <div class="empty"><div class="empty-ico">🧠</div>
+          <div class="empty"><div class="empty-ico" data-pix="brain"></div>
             <div class="empty-title">База пуста</div>
             <div>Добавь типовые вопросы и canned-ответы. AI будет использовать их вместо того чтобы выдумывать.</div>
             <button class="btn" style="margin-top:16px" data-action="new-kb">Добавить запись</button>
@@ -1711,7 +1799,7 @@ const screens = {
           💡 Этим лидам кампании НЕ шлют сообщения. Авто-добавление при детекции «отпиши/не пиши/спам/нахуй» в incoming. Можно добавить вручную из Inbox-чата (🚫).
         </div>
         ${items.length === 0 ? `
-          <div class="empty"><div class="empty-ico">🚫</div>
+          <div class="empty"><div class="empty-ico" data-pix="ban"></div>
             <div class="empty-title">Стоп-лист пуст</div>
           </div>
         ` : items.map(l => `
@@ -1776,10 +1864,10 @@ const screens = {
 
         <div class="section-title">Достижения</div>
         <div class="achievements">
-          <div class="ach"><div class="ach-ico" style="background:var(--ink);color:var(--card)">🥷</div><div class="ach-lbl">Ниндзя</div></div>
-          <div class="ach"><div class="ach-ico" style="background:var(--gold);color:var(--ink)">⚔</div><div class="ach-lbl">100 отв</div></div>
-          <div class="ach"><div class="ach-ico" style="background:var(--red);color:var(--card)">⊕</div><div class="ach-lbl">20% RR</div></div>
-          <div class="ach locked"><div class="ach-ico">🐉</div><div class="ach-lbl">Дракон</div></div>
+          <div class="ach"><div class="ach-ico pix-ink" data-pix="ninja"></div><div class="ach-lbl">Ниндзя</div></div>
+          <div class="ach"><div class="ach-ico pix-gold" data-pix="paper_plane"></div><div class="ach-lbl">100 отв</div></div>
+          <div class="ach"><div class="ach-ico pix-red" data-pix="target"></div><div class="ach-lbl">20% RR</div></div>
+          <div class="ach locked"><div class="ach-ico pix-plum" data-pix="fire"></div><div class="ach-lbl">Дракон</div></div>
         </div>
 
         <div class="section-title">Настройки outreach</div>
@@ -1807,7 +1895,7 @@ const screens = {
     const msgs = st?.messages;
     const actions = st?.actions || [];
     if (msgs === null) {
-      return `<div class="screen"><div class="empty"><div class="empty-ico">…</div><div class="empty-title">Загружаю Guru</div></div></div>`;
+      return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю Guru</div></div></div>`;
     }
     const pending = actions.filter(a => a.status === 'pending');
     const draftHTML = (a) => `
@@ -1840,7 +1928,7 @@ const screens = {
       <div class="head-row"><h2>★ Guru</h2><div class="muted small">${pending.length} pending</div></div>
       <div class="guru-log" id="guru-log">
         ${msgs.length === 0 && actions.length === 0 ? `
-          <div class="empty"><div class="empty-ico">★</div>
+          <div class="empty"><div class="empty-ico" data-pix="ninja"></div>
             <div class="empty-title">Привет, ${escape(ME.first_name)}!</div>
             <div class="empty-sub">Пиши: «ответь @user привет», «спроси Х про цены», «напиши +7… демо завтра».<br>
             Я сгенерю черновик — ты апрувнешь — улетит лиду.</div>
@@ -1861,28 +1949,28 @@ const screens = {
       <div class="head-row"><h2>Ещё</h2></div>
       <div class="section-title">Аккаунт</div>
       <div class="list-item" data-action="goto-profile">
-        <div class="list-ico">⚇</div>
+        <div class="list-ico" data-pix="user"></div>
         <div class="list-text"><div class="list-title">@${escape(ME.username || 'без юзернейма')}</div><div class="list-sub">Профиль · Calendly-ссылка</div></div>
         <div class="list-arrow">›</div>
       </div>
       <div class="section-title">AI</div>
       <div class="list-item" data-action="goto-templates">
-        <div class="list-ico">✦</div><div class="list-text"><div class="list-title">AI-ассистент</div><div class="list-sub">Шаблоны и генератор сообщений</div></div><div class="list-arrow">›</div>
+        <div class="list-ico pix-plum" data-pix="spark"></div><div class="list-text"><div class="list-title">AI-ассистент</div><div class="list-sub">Шаблоны и генератор сообщений</div></div><div class="list-arrow">›</div>
       </div>
       <div class="section-title">Сообщество</div>
       <div class="list-item" data-action="goto-idea-submit">
-        <div class="list-ico">💡</div><div class="list-text"><div class="list-title">Оставить идею</div><div class="list-sub">Что улучшить в приложении</div></div><div class="list-arrow">›</div>
+        <div class="list-ico" data-pix="idea"></div><div class="list-text"><div class="list-title">Оставить идею</div><div class="list-sub">Что улучшить в приложении</div></div><div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-my-ideas">
-        <div class="list-ico">⊟</div><div class="list-text"><div class="list-title">Мои идеи</div><div class="list-sub">Статусы предложенных идей</div></div><div class="list-arrow">›</div>
+        <div class="list-ico" data-pix="list"></div><div class="list-text"><div class="list-title">Мои идеи</div><div class="list-sub">Статусы предложенных идей</div></div><div class="list-arrow">›</div>
       </div>
       ${IS_ADMIN ? `
-      <div class="list-item" data-action="goto-admin-ideas" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">
-        <div class="list-ico">🛠</div><div class="list-text"><div class="list-title">Админка · идеи</div><div class="list-sub">Управление предложениями пользователей</div></div><div class="list-arrow">›</div>
+      <div class="list-item" data-action="goto-admin-ideas">
+        <div class="list-ico pix-red" data-pix="settings"></div><div class="list-text"><div class="list-title">Админка · идеи</div><div class="list-sub">Управление предложениями пользователей</div></div><div class="list-arrow">›</div>
       </div>
       ` : ''}
       <div class="list-item" data-action="contact-support">
-        <div class="list-ico">?</div><div class="list-text"><div class="list-title">Поддержка</div><div class="list-sub">${escape(SUPPORT)}</div></div><div class="list-arrow">›</div>
+        <div class="list-ico pix-sky" data-pix="info"></div><div class="list-text"><div class="list-title">Поддержка</div><div class="list-sub">${escape(SUPPORT)}</div></div><div class="list-arrow">›</div>
       </div>
     </div>
   `,
@@ -1903,6 +1991,7 @@ function render(name, state = {}) {
   currentScreen = name;
   screenState[name] = { ...screenState[name], ...state };
   $('#screen-root').innerHTML = screens[name](screenState[name]);
+  _hydratePixIcons($('#screen-root'));
   document.querySelectorAll('.tab').forEach(t => {
     t.classList.toggle('active', t.dataset.screen === name);
   });
@@ -3217,6 +3306,9 @@ if (tg) {
   tg.onEvent('backButtonClicked', goBack);
   tg.BackButton.onClick(goBack);   // дублируем — на всякий случай для новых версий
 }
+// Изначальный hydrate (tabbar + всё что в HTML)
+_hydratePixIcons();
+
 // Topbar collapse — состояние в localStorage
 const _topbar = document.getElementById('topbar');
 const _toggleBtn = document.getElementById('topbar-toggle');
