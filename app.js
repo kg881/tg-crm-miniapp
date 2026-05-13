@@ -1322,7 +1322,7 @@ const screens = {
     return `
       <div class="conv-screen">
         <div class="conv-header">
-          <button class="icon-btn" data-action="conv-back" title="Назад" style="font-size:20px">‹</button>
+          <button class="icon-btn" data-action="conv-back" title="Назад" data-pix="back"></button>
           <div class="avatar blue" style="width:36px;height:36px;font-size:14px">${initials(title)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(title)}</div>
@@ -1363,7 +1363,7 @@ const screens = {
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
           <input id="reply-input" type="text" placeholder="Сообщение"
                  style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-size:15px">
-          <button class="btn" data-action="send-reply" data-id="${st.conv_id}" title="Отправить сообщение" style="padding:10px 16px">→</button>
+          <button class="btn primary" data-action="send-reply" data-id="${st.conv_id}" title="Отправить сообщение" style="padding:10px 14px"><span data-pix="send" style="display:inline-block;width:18px;height:18px"></span></button>
         </div>
       </div>`;
   },
@@ -1939,7 +1939,7 @@ const screens = {
       </div>
       <div class="guru-input-bar">
         <textarea id="guru-input" rows="2" placeholder="Задача для Guru…"></textarea>
-        <button class="btn primary" onclick="guruSend()" title="Отправить задачу Guru — он сгенерит черновик">→</button>
+        <button class="btn primary" onclick="guruSend()" title="Отправить задачу Guru — он сгенерит черновик"><span data-pix="send" style="display:inline-block;width:18px;height:18px"></span></button>
       </div>
     </div>`;
   },
