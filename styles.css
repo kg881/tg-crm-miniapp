@@ -560,6 +560,22 @@ main {
   flex: 1; overflow-y: auto; padding: 14px;
   display: flex; flex-direction: column; gap: 12px;
 }
+.guru-mode-bar {
+  padding: 8px 14px; background: rgba(26,20,17,.04);
+  border-bottom: 1px solid rgba(26,20,17,.10);
+  font-size: 12.5px;
+}
+.guru-mode-bar a { color: var(--plum); text-decoration: underline; margin-left: 6px; }
+.mode-btn {
+  padding: 4px 10px; border-radius: 14px; font-size: 12px;
+  background: transparent; border: 1px solid rgba(26,20,17,.20);
+  color: var(--ink-2); cursor: pointer;
+}
+.mode-btn:hover { background: rgba(26,20,17,.06); }
+.mode-active { color: var(--paper); border-color: transparent; font-weight: 600; }
+.mode-active.mode-gold { background: var(--gold); color: var(--ink); }
+.mode-active.mode-red  { background: var(--red); }
+.mode-active.mode-ink  { background: var(--ink-3); }
 .guru-msg { display: flex; flex-direction: column; gap: 6px; }
 .guru-msg-user { align-items: flex-end; }
 .guru-msg-assistant { align-items: flex-start; }

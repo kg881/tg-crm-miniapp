@@ -172,6 +172,8 @@ const API = {
     reject:    (id)                => API.req('POST', `/api/guru/actions/${id}/reject`),
     edit:      (id, draft_text)    => API.req('POST', `/api/guru/actions/${id}/edit`, { draft_text }),
     setMode:   (conv_id, guru_mode)=> API.req('POST', `/api/guru/conv/${conv_id}/mode`, { guru_mode }),
+    settings:  ()                  => API.req('GET',  '/api/guru/settings'),
+    putSettings: (data)            => API.req('PUT',  '/api/guru/settings', data),
   },
 
   // URL аватарки (для <img src="...">)
