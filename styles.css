@@ -560,22 +560,46 @@ main {
   flex: 1; overflow-y: auto; padding: 14px;
   display: flex; flex-direction: column; gap: 12px;
 }
-.guru-mode-bar {
-  padding: 8px 14px; background: rgba(26,20,17,.04);
-  border-bottom: 1px solid rgba(26,20,17,.10);
-  font-size: 12.5px;
+/* Guru head — collapsible + inline mode pill */
+.guru-head { cursor: default; transition: padding .15s, max-height .15s; padding: 10px 14px; }
+.guru-head h2 { cursor: pointer; user-select: none; }
+.guru-head-meta { display: flex; align-items: center; gap: 10px; }
+.guru-head.head-collapsed { padding: 2px 14px; max-height: 22px; overflow: hidden; }
+.guru-head.head-collapsed h2 { font-size: 11px; color: var(--ink-2); margin: 0; }
+.guru-head.head-collapsed .guru-head-meta { display: none; }
+
+.mode-pill {
+  padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  letter-spacing: .5px; border: 0; cursor: pointer;
+  background: var(--ink-3); color: var(--paper);
 }
-.guru-mode-bar a { color: var(--plum); text-decoration: underline; margin-left: 6px; }
-.mode-btn {
-  padding: 4px 10px; border-radius: 14px; font-size: 12px;
-  background: transparent; border: 1px solid rgba(26,20,17,.20);
-  color: var(--ink-2); cursor: pointer;
+.mode-pill.mode-gold { background: var(--gold); color: var(--ink); }
+.mode-pill.mode-red  { background: var(--red);  color: var(--paper); }
+.mode-pill.mode-ink  { background: var(--ink-3); color: var(--paper); }
+.mode-pill:hover { opacity: .85; }
+
+/* Generic modal-sheet (для Guru-settings и т.п.) */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(26,20,17,.55);
+  z-index: 9999; display: flex; align-items: flex-end; justify-content: center;
+  animation: fadeIn .15s ease-out;
 }
-.mode-btn:hover { background: rgba(26,20,17,.06); }
-.mode-active { color: var(--paper); border-color: transparent; font-weight: 600; }
-.mode-active.mode-gold { background: var(--gold); color: var(--ink); }
-.mode-active.mode-red  { background: var(--red); }
-.mode-active.mode-ink  { background: var(--ink-3); }
+.modal-sheet {
+  background: var(--paper); width: 100%; max-width: 480px;
+  border-radius: 16px 16px 0 0; padding: 18px 16px 22px;
+  box-shadow: 0 -4px 20px rgba(26,20,17,.25);
+  max-height: 70vh; overflow-y: auto;
+}
+.modal-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+.modal-row {
+  display: block; width: 100%; text-align: left; padding: 12px;
+  border-radius: 10px; border: 1px solid rgba(26,20,17,.15);
+  background: transparent; cursor: pointer; margin: 6px 0;
+  font-size: 14px; color: var(--ink);
+}
+.modal-row:hover { background: rgba(26,20,17,.04); }
+.modal-row-active { background: rgba(229,179,40,.18); border-color: var(--gold); }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 .guru-msg { display: flex; flex-direction: column; gap: 6px; }
 .guru-msg-user { align-items: flex-end; }
 .guru-msg-assistant { align-items: flex-start; }

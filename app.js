@@ -1943,27 +1943,15 @@ const screens = {
     };
     const standalonePending = pending.filter(a => !msgs.some(m => (m.tool_calls||[]).some(tc => tc.action_id === a.id)));
     const settings = st?.settings || { default_mode: 'admin_approved', conv_counts: {}, modes: ['admin_approved','full_access','off'] };
-    const modeLabel = (m) => ({admin_approved:'Драфт + апрув', full_access:'Авто-ответ', off:'Выключен'}[m] || m);
-    const modeColor = (m) => ({admin_approved:'gold', full_access:'red', off:'ink'}[m] || 'ink');
-    const totalConvs = Object.values(settings.conv_counts).reduce((a,b)=>a+b, 0);
+    const modeShort = ({admin_approved:'DRAFT', full_access:'AUTO', off:'OFF'}[settings.default_mode] || '?');
+    const modeColor = ({admin_approved:'gold', full_access:'red', off:'ink'}[settings.default_mode] || 'ink');
     return `
     <div class="screen guru-screen">
-      <div class="head-row"><h2>★ Guru</h2><div class="muted small">${pending.length} pending</div></div>
-      <div class="guru-mode-bar">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="muted small">Режим по умолчанию:</span>
-          ${settings.modes.map(m => `
-            <button class="mode-btn ${m===settings.default_mode?'mode-active mode-'+modeColor(m):''}"
-                    data-action="set-guru-default" data-mode="${m}">${modeLabel(m)}</button>
-          `).join('')}
-        </div>
-        <div class="muted small" style="margin-top:6px">
-          ${settings.default_mode === 'full_access'
-              ? '⚡ Новые входящие будут отправляться <b>автоматически</b> без апрува.'
-              : settings.default_mode === 'off'
-              ? 'Guru не реагирует на новые входящие.'
-              : 'Guru готовит черновик и ждёт твоего апрува.'}
-          ${totalConvs > 0 ? `<a href="#" data-action="apply-guru-mode-all" data-mode="${settings.default_mode}">Применить ко всем ${totalConvs} активным переписокам →</a>` : ''}
+      <div class="head-row guru-head" id="guru-head">
+        <h2 data-action="toggle-guru-head" title="Скрыть/показать шапку">★ Guru</h2>
+        <div class="guru-head-meta">
+          <button class="mode-pill mode-${modeColor}" data-action="open-guru-settings" title="Настройки режима Guru">${modeShort}</button>
+          <span class="muted small">${pending.length} pending</span>
         </div>
       </div>
       <div class="guru-log" id="guru-log">
@@ -2268,6 +2256,11 @@ async function loadGuru(silent=false) {
     const focused = document.activeElement?.id;
     const caret = focused === 'guru-input' ? document.activeElement.selectionStart : null;
     render('guru', { messages: h.messages, actions: h.actions, settings, _draft: draft });
+    try {
+      if (localStorage.getItem('guru_head_collapsed') === '1') {
+        document.getElementById('guru-head')?.classList.add('head-collapsed');
+      }
+    } catch {}
     requestAnimationFrame(() => {
       const log = document.getElementById('guru-log');
       if (log) log.scrollTop = log.scrollHeight;
@@ -3150,26 +3143,66 @@ async function handleAction(action, el) {
     case 'goto-pricing':   loadPricing(); break;
     case 'pricing-contact': openTgUser('k_gaft'); break;
 
-    // Guru default-mode
-    case 'set-guru-default': {
+    // Guru: открыть модалку настройки режима
+    case 'open-guru-settings': {
+      const s = await API.guru.settings().catch(()=>null);
+      if (!s) { toast('Не удалось загрузить settings'); break; }
+      const total = Object.values(s.conv_counts || {}).reduce((a,b)=>a+b,0);
+      const labels = { admin_approved:'Драфт + апрув', full_access:'Авто-ответ', off:'Выключен' };
+      const html = `
+        <div class="modal-backdrop" data-action="close-modal">
+          <div class="modal-sheet" onclick="event.stopPropagation()">
+            <div class="modal-title">Режим Guru</div>
+            <div class="muted small" style="margin:4px 0 12px">Применяется к НОВЫМ входящим перепискам.</div>
+            ${s.modes.map(m => `
+              <button class="modal-row ${m===s.default_mode?'modal-row-active':''}"
+                      data-action="set-guru-default-modal" data-mode="${m}">
+                <b>${labels[m]||m}</b>
+                ${m===s.default_mode?'<span class="muted small"> · текущий</span>':''}
+              </button>
+            `).join('')}
+            ${total > 0 ? `<button class="btn full" style="margin-top:10px" data-action="apply-guru-mode-all-modal" data-mode="${s.default_mode}">Применить к ${total} существующим перепискам</button>` : ''}
+            <button class="btn ghost full" style="margin-top:8px" data-action="close-modal">Закрыть</button>
+          </div>
+        </div>`;
+      const wrap = document.createElement('div');
+      wrap.id = 'guru-settings-modal';
+      wrap.innerHTML = html;
+      document.body.appendChild(wrap);
+      break;
+    }
+    case 'close-modal': {
+      document.getElementById('guru-settings-modal')?.remove();
+      break;
+    }
+    case 'set-guru-default-modal': {
       const mode = el.dataset.mode;
       try {
-        const r = await API.guru.putSettings({ default_mode: mode, apply_to_all: false });
+        await API.guru.putSettings({ default_mode: mode, apply_to_all: false });
         toast(`Режим: ${mode === 'full_access' ? 'AUTO' : mode === 'off' ? 'OFF' : 'DRAFT'}`);
-        _guruHash = '';   // форсим перерисовку с новым settings
+        document.getElementById('guru-settings-modal')?.remove();
+        _guruHash = '';
         loadGuru(true);
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
-    case 'apply-guru-mode-all': {
+    case 'apply-guru-mode-all-modal': {
       const mode = el.dataset.mode;
       if (!confirm(`Поменять режим у ВСЕХ переписок на «${mode}»?`)) break;
       try {
         const r = await API.guru.putSettings({ default_mode: mode, apply_to_all: true });
         toast(`✓ Применено к ${r.updated_convs} переписок`);
+        document.getElementById('guru-settings-modal')?.remove();
         _guruHash = '';
         loadGuru(true);
       } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'toggle-guru-head': {
+      const head = document.getElementById('guru-head');
+      if (!head) break;
+      head.classList.toggle('head-collapsed');
+      try { localStorage.setItem('guru_head_collapsed', head.classList.contains('head-collapsed') ? '1':'0'); } catch {}
       break;
     }
 
