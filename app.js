@@ -1357,8 +1357,8 @@ const screens = {
         </div>
         ` : ''}
         <div class="conv-input">
-          <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Файл" data-pix="attach"></button>
-          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка" data-pix="spark" style="color:var(--plum)"></button>
+          <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Прикрепить файл" data-pix="plus"></button>
+          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка / сгенерить ответ" data-pix="edit" style="color:var(--plum)"></button>
           <input type="file" id="attach-input" style="display:none"
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
           <input id="reply-input" type="text" placeholder="Сообщение">
@@ -1915,10 +1915,10 @@ const screens = {
     const draftHTML = (a) => `
       <div class="guru-card guru-card-${escape(a.status)}" data-act-id="${a.id}">
         <div class="guru-card-head">
-          <div class="guru-card-title">${a.trigger === 'incoming_reply' ? '✉ Лиду:' : '✎ Черновик для:'} <b>${escape(a.target_label || a.target_username || a.target_phone || '?')}</b></div>
+          <div class="guru-card-title">${a.trigger === 'incoming_reply' ? '📨 Ответ лиду:' : '✎ Черновик для:'} <b>${escape(a.target_label || a.target_username || a.target_phone || '?')}</b></div>
           <div class="guru-card-meta">${escape(a.status)}${a.trigger === 'incoming_reply' ? ' · авто' : ''}</div>
         </div>
-        ${a.intent ? `<div class="guru-card-intent">«${escape(a.intent)}»</div>` : ''}
+        ${a.intent ? `<div class="guru-card-intent">${a.trigger === 'incoming_reply' ? '<span class="muted small">Входящее:</span> ' : ''}«${escape(a.intent.replace(/^Ответ на: «|»$/g,''))}»</div>` : ''}
         <textarea class="guru-draft" id="guru-draft-${a.id}" rows="3" ${a.status !== 'pending' ? 'disabled' : ''}>${escape(a.draft_text || '')}</textarea>
         ${a.status === 'pending' ? `
           <div class="guru-actions">
