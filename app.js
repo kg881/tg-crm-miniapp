@@ -1361,9 +1361,8 @@ const screens = {
           <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка" data-pix="spark" style="color:var(--plum)"></button>
           <input type="file" id="attach-input" style="display:none"
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
-          <input id="reply-input" type="text" placeholder="Сообщение"
-                 style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-size:15px">
-          <button class="btn primary" data-action="send-reply" data-id="${st.conv_id}" title="Отправить сообщение" style="padding:10px 14px"><span data-pix="send" style="display:inline-block;width:18px;height:18px"></span></button>
+          <input id="reply-input" type="text" placeholder="Сообщение">
+          <button class="btn primary conv-send" data-action="send-reply" data-id="${st.conv_id}" title="Отправить сообщение"><span data-pix="send" style="display:inline-block;width:18px;height:18px"></span></button>
         </div>
       </div>`;
   },
