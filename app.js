@@ -1926,6 +1926,11 @@ const screens = {
             <button class="btn" onclick="guruEdit(${a.id})" title="Сохранить правки текста (без отправки)">Сохранить правки</button>
             <button class="btn ghost" onclick="guruReject(${a.id})" title="Отклонить черновик — не отправлять">Отклонить</button>
           </div>` : ''}
+        ${a.status === 'failed' ? `
+          <div class="guru-actions">
+            <button class="btn primary" onclick="guruApprove(${a.id})" title="Сбросить failed → попробовать отправить ещё раз">↻ Повторить</button>
+            <button class="btn ghost" onclick="guruReject(${a.id})" title="Отметить как отклонённый">Отклонить</button>
+          </div>` : ''}
         ${a.error ? `<div class="guru-card-error">⚠️ ${escape(a.error)}</div>` : ''}
       </div>`;
     const msgHTML = (m) => {
@@ -2276,7 +2281,12 @@ async function guruSend() {
 
 async function guruApprove(id) {
   try { await API.guru.approve(id); loadGuru(true); }
-  catch (e) { toast(`Ошибка: ${e.message}`); }
+  catch (e) {
+    // Чистим '500 send_failed: ' префикс чтобы юзер видел реальную причину
+    const msg = (e.message || '').replace(/^\d+\s+send_failed:\s*/i, '');
+    toast(`Не отправилось: ${msg}`);
+    loadGuru(true);   // перерисовать карточку с новым статусом (failed → можно retry)
+  }
 }
 async function guruReject(id) {
   try { await API.guru.reject(id); loadGuru(true); }
