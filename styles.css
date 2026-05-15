@@ -411,6 +411,15 @@ main {
   background: #c8e8d6; color: var(--ink); align-self: flex-end;
   box-shadow: 0 1px 0 rgba(26,20,17,.10);
 }
+/* Внутри bubble — текст должен показываться ПОЛНОСТЬЮ (а не обрезаться, как в preview списка). */
+.conv-bubble .conv-text {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 14.5px; color: var(--ink); line-height: 1.45;
+  word-break: break-word; overflow-wrap: anywhere;
+  margin: 0; font-weight: 400;
+}
 .conv-input {
   display: flex; gap: 8px;
   padding: 8px 10px;
