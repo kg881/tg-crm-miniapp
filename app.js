@@ -1941,7 +1941,9 @@ const screens = {
       }
       return `<div class="guru-msg guru-msg-${escape(m.role)}"><div class="guru-bubble">${escape(m.content).replace(/\n/g,'<br>')}</div></div>`;
     };
-    const standalonePending = pending.filter(a => !msgs.some(m => (m.tool_calls||[]).some(tc => tc.action_id === a.id)));
+    const standalonePending = pending
+      .filter(a => !msgs.some(m => (m.tool_calls||[]).some(tc => tc.action_id === a.id)))
+      .sort((a, b) => a.id - b.id);   // старые сверху, свежие снизу — под auto-scroll
     const settings = st?.settings || { default_mode: 'admin_approved', conv_counts: {}, modes: ['admin_approved','full_access','off'] };
     const modeShort = ({admin_approved:'DRAFT', full_access:'AUTO', off:'OFF'}[settings.default_mode] || '?');
     const modeColor = ({admin_approved:'gold', full_access:'red', off:'ink'}[settings.default_mode] || 'ink');
@@ -1961,8 +1963,8 @@ const screens = {
             <div class="empty-sub">Пиши: «ответь @user привет», «спроси Х про цены», «напиши +7… демо завтра».<br>
             Я сгенерю черновик — ты апрувнешь — улетит лиду.</div>
           </div>` : ''}
-        ${standalonePending.map(draftHTML).join('')}
         ${msgs.map(msgHTML).join('')}
+        ${standalonePending.map(draftHTML).join('')}
       </div>
       <div class="guru-input-bar">
         <textarea id="guru-input" rows="2" placeholder="Задача для Guru…"></textarea>
