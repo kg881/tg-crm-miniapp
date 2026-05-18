@@ -2413,7 +2413,7 @@ async function loadAdminIdeas(filter='all') {
 }
 
 // ===== Action handler =====
-async function handleAction(action, el) {
+async function handleAction(action, el, e) {
   haptic();
   switch (action) {
     case 'open-lead':       toast(`Карточка лида: ${el.dataset.name}\n\n(скоро)`); break;
@@ -3151,7 +3151,7 @@ async function handleAction(action, el) {
       const labels = { admin_approved:'Драфт + апрув', full_access:'Авто-ответ', off:'Выключен' };
       const html = `
         <div class="modal-backdrop" data-action="close-modal">
-          <div class="modal-sheet" onclick="event.stopPropagation()">
+          <div class="modal-sheet">
             <div class="modal-title">Режим Guru</div>
             <div class="muted small" style="margin:4px 0 12px">Применяется к НОВЫМ входящим перепискам.</div>
             ${s.modes.map(m => `
@@ -3172,6 +3172,9 @@ async function handleAction(action, el) {
       break;
     }
     case 'close-modal': {
+      // close-modal висит и на backdrop, и на ghost-кнопке "Закрыть".
+      // Если клик попал по backdrop через ребёнка (внутри sheet) — не закрываем.
+      if (e && el.classList.contains('modal-backdrop') && e.target !== el) break;
       document.getElementById('guru-settings-modal')?.remove();
       break;
     }
@@ -3478,8 +3481,9 @@ document.addEventListener('click', (e) => {
       return;
     }
   }
-  const act = e.target.closest('[data-action]')?.dataset.action;
-  if (act) handleAction(act, e.target.closest('[data-action]'));
+  const actEl = e.target.closest('[data-action]');
+  const act = actEl?.dataset.action;
+  if (act) handleAction(act, actEl, e);
 });
 
 document.addEventListener('keydown', (e) => {
