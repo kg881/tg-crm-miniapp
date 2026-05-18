@@ -97,26 +97,46 @@ function pixIcon(name, color = 'gold', size = 36) {
 const $ = (sel) => document.querySelector(sel);
 const initials = (n) => (n || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
 const escape = (s) => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Backend хранит naive UTC (datetime.utcnow), но отдаёт ISO без 'Z' →
+// форсим UTC и форматируем в МСК, чтобы время было одинаковое везде.
+const MSK = 'Europe/Moscow';
+const parseUTC = (iso) => {
+  if (!iso) return null;
+  // если уже есть 'Z' или ±hh:mm — оставляем
+  const s = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z';
+  return new Date(s);
+};
+const _mskParts = (d) => {
+  const fmt = new Intl.DateTimeFormat('ru-RU', { timeZone: MSK,
+    year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+  const p = Object.fromEntries(fmt.formatToParts(d).map(x => [x.type, x.value]));
+  return p; // {year,month,day,hour,minute}
+};
+const _mskDateKey = (d) => { const p = _mskParts(d); return `${p.year}-${p.month}-${p.day}`; };
+const _todayMSK = () => _mskDateKey(new Date());
+
 const fmtTime = (iso) => {
-  const d = new Date(iso); const today = new Date();
-  if (d.toDateString() === today.toDateString()) return d.toTimeString().slice(0,5);
-  return d.toISOString().slice(5,10).replace('-','.');
+  const d = parseUTC(iso); if (!d) return '';
+  const p = _mskParts(d);
+  if (_mskDateKey(d) === _todayMSK()) return `${p.hour}:${p.minute}`;
+  return `${p.day}.${p.month}`;
 };
 
-// «вчера в 14:30», «5 мин назад», «12 апр»
+// «вчера в 14:30», «5 мин назад», «12 апр» — всё в МСК
 function prettyTime(iso) {
   if (!iso) return '';
-  const d = new Date(iso); const now = new Date();
-  const diffMs = now - d; const diffMin = Math.round(diffMs / 60000);
+  const d = parseUTC(iso); if (!d) return '';
+  const now = new Date();
+  const diffMin = Math.round((now - d) / 60000);
   if (diffMin < 1) return 'только что';
   if (diffMin < 60) return `${diffMin} мин назад`;
-  const sameDay = d.toDateString() === now.toDateString();
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  const isYesterday = d.toDateString() === yesterday.toDateString();
-  const hhmm = d.toTimeString().slice(0,5);
-  if (sameDay)     return `сегодня ${hhmm}`;
-  if (isYesterday) return `вчера ${hhmm}`;
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const today = _todayMSK();
+  const yKey = (() => { const y = new Date(now); y.setUTCDate(y.getUTCDate()-1); return _mskDateKey(y); })();
+  const dKey = _mskDateKey(d);
+  const p = _mskParts(d);
+  if (dKey === today) return `сегодня ${p.hour}:${p.minute}`;
+  if (dKey === yKey)  return `вчера ${p.hour}:${p.minute}`;
+  return new Intl.DateTimeFormat('ru-RU', { timeZone: MSK, day:'numeric', month:'short' }).format(d);
 }
 
 // Парсит "сегодня"/"завтра"/"+3д"/"YYYY-MM-DD" → ISO date string. null если не понял.
@@ -1311,11 +1331,13 @@ const screens = {
     // Группировка по датам для разделителей
     let lastDate = '';
     const dateLabel = (iso) => {
-      const d = new Date(iso); const t = new Date();
-      const y = new Date(t); y.setDate(t.getDate() - 1);
-      if (d.toDateString() === t.toDateString()) return 'Сегодня';
-      if (d.toDateString() === y.toDateString()) return 'Вчера';
-      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      const d = parseUTC(iso); if (!d) return '';
+      const dKey = _mskDateKey(d);
+      const today = _todayMSK();
+      const y = new Date(); y.setUTCDate(y.getUTCDate() - 1);
+      if (dKey === today)             return 'Сегодня';
+      if (dKey === _mskDateKey(y))    return 'Вчера';
+      return new Intl.DateTimeFormat('ru-RU', { timeZone: MSK, day:'numeric', month:'long' }).format(d);
     };
     const isMedia = (txt) => /^(🖼 Фото|🎥 Видео|🎤 Голосовое|📎 Документ|📍 Гео|📨 Медиа|\[(image|video|audio|application)\/)/i.test(txt);
 
