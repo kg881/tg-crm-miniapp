@@ -164,6 +164,21 @@ const API = {
     me: () => API.req('GET', '/api/billing/me'),
   },
 
+  salesClone: {
+    list:      ()              => API.req('GET',    '/api/sales_clone'),
+    stats:     ()              => API.req('GET',    '/api/sales_clone/stats'),
+    add:       (text, tag)     => API.req('POST',   '/api/sales_clone', { text, tag }),
+    bulkPaste: (raw, tag)      => API.req('POST',   '/api/sales_clone/bulk_paste', { raw, tag }),
+    upload:    (file, tag)     => {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (tag) fd.append('tag', tag);
+      return API.req('POST', '/api/sales_clone/upload', fd);
+    },
+    remove:    (id)            => API.req('DELETE', `/api/sales_clone/${id}`),
+    clearAll:  ()              => API.req('DELETE', '/api/sales_clone'),
+  },
+
   guru: {
     chat:      (text)              => API.req('POST', '/api/guru/chat', { text }),
     history:   (limit=50)          => API.req('GET',  `/api/guru/history?limit=${limit}`),

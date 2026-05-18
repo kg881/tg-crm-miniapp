@@ -317,6 +317,25 @@ document.addEventListener('change', (e) => {
       body.style.pointerEvents = on ? 'auto' : 'none';
     }
   }
+  // Файловые input'ы со своим data-action — триггерим общий dispatcher
+  if (e.target.matches?.('input[type="file"][data-action]')) {
+    document.dispatchEvent(new CustomEvent('app:filechange', { detail: { el: e.target } }));
+  }
+});
+document.addEventListener('app:filechange', async (ev) => {
+  const el = ev.detail.el;
+  const action = el.dataset.action;
+  // Эмулируем click на dispatcher: переиспользуем тот же switch через искусственный target
+  if (action === 'sc-file-pick') {
+    const f = el.files?.[0];
+    if (!f) return;
+    const tag = document.getElementById('sc-tag')?.value.trim() || null;
+    try {
+      const r = await API.salesClone.upload(f, tag);
+      toast(`✓ +${r.added} из ${r.filename}`);
+      loadSalesClone();
+    } catch (e) { toast(`Ошибка: ${e.message}`); }
+  }
 });
 
 // ===== FAB (плавающая «+» с раскрывающимися действиями) =====
@@ -1995,6 +2014,73 @@ const screens = {
     </div>`;
   },
 
+  // ---------- SALES CLONE ----------
+  salesClone: (st) => {
+    const samples = st?.samples;
+    if (samples === undefined) {
+      return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю</div></div></div>`;
+    }
+    const byTag = {};
+    (samples || []).forEach(s => { const k = s.tag || '—'; byTag[k] = (byTag[k]||0) + 1; });
+    const tagChips = Object.entries(byTag).map(([t,n]) => `<span class="pill ink">${escape(t)}·${n}</span>`).join(' ');
+    return `
+    <div class="screen">
+      <div class="head-row"><h2>★ Sales Clone</h2>
+        <div class="muted small">${samples.length} сэмплов</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:14px">Как это работает</div>
+        <div class="muted small" style="margin-top:6px;line-height:1.5">
+          Загрузи сюда свои реальные реплики из продаж — ответы на возражения, opening'и, фразы которые работают.
+          Guru будет использовать их как few-shot при генерации драфтов. Чем больше — тем точнее стиль.
+        </div>
+        <div style="margin-top:8px">${tagChips || '<span class="muted small">тегов пока нет</span>'}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:14px">Добавить вручную</div>
+        <input id="sc-tag" placeholder="Тег (например: price / objection / opening)" class="pixel-input" style="margin-top:8px">
+        <textarea id="sc-text" rows="3" placeholder="Текст одной реплики…" class="pixel-input" style="margin-top:6px"></textarea>
+        <button class="btn primary full" style="margin-top:8px" data-action="sc-add">+ Добавить</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:14px">Bulk-paste / файл</div>
+        <textarea id="sc-bulk" rows="4" placeholder="Вставь много реплик. Разделитель — пустая строка или ---" class="pixel-input" style="margin-top:8px"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" data-action="sc-bulk-paste">Залить bulk</button>
+          <label class="btn" style="cursor:pointer">📎 Файл .txt/.json
+            <input type="file" id="sc-file" accept=".txt,.json" style="display:none" data-action="sc-file-pick">
+          </label>
+        </div>
+        <div class="muted small" style="margin-top:6px">
+          .txt — блоки разделённые пустой строкой. .json — массив строк или Telegram Desktop export.
+        </div>
+      </div>
+
+      <div class="head-row" style="margin-top:14px"><h3 style="font-size:14px">Сэмплы (${samples.length})</h3>
+        ${samples.length ? `<button class="btn ghost small" data-action="sc-clear-all">очистить всё</button>` : ''}
+      </div>
+      <div class="card" style="padding:0">
+        ${samples.length === 0 ? `
+          <div class="empty" style="padding:24px">
+            <div class="empty-ico" data-pix="paper"></div>
+            <div class="empty-title">Пока пусто</div>
+            <div class="muted small">Залей хотя бы 10 реплик — Guru заметно поумнеет.</div>
+          </div>` : samples.map(s => `
+            <div class="sc-row">
+              <div class="sc-text">${escape(s.text)}</div>
+              <div class="sc-meta">
+                ${s.tag ? `<span class="pill gold">${escape(s.tag)}</span>` : ''}
+                <span class="muted small">${escape(s.source)}</span>
+                <button class="btn ghost small" data-action="sc-del" data-id="${s.id}" title="Удалить">✕</button>
+              </div>
+            </div>`).join('')}
+      </div>
+    </div>`;
+  },
+
   // ---------- PRICING ----------
   pricing: (st) => {
     const me = st?.me;
@@ -2071,6 +2157,9 @@ const screens = {
       <div class="section-title">AI</div>
       <div class="list-item" data-action="goto-templates">
         <div class="list-ico pix-plum" data-pix="spark"></div><div class="list-text"><div class="list-title">AI-ассистент</div><div class="list-sub">Шаблоны и генератор сообщений</div></div><div class="list-arrow">›</div>
+      </div>
+      <div class="list-item" data-action="goto-sales-clone">
+        <div class="list-ico pix-red" data-pix="ninja"></div><div class="list-text"><div class="list-title">Sales Clone</div><div class="list-sub">Обучи Guru своему стилю продаж</div></div><div class="list-arrow">›</div>
       </div>
       <div class="section-title">Сообщество</div>
       <div class="list-item" data-action="goto-idea-submit">
@@ -2410,6 +2499,15 @@ async function loadStoplist() {
   try { render('stoplist', { items: await API.stoplist.list() }); }
   catch (e) { render('stoplist', { items: [] }); toast(`Ошибка: ${e.message}`); }
 }
+async function loadSalesClone(silent=false) {
+  if (silent && currentScreen !== 'salesClone') return;
+  if (!silent) render('salesClone', { samples: undefined });
+  try {
+    const samples = await API.salesClone.list();
+    render('salesClone', { samples });
+  } catch (e) { toast(`Ошибка: ${e.message}`); }
+}
+
 async function loadPricing() {
   try {
     const me = await API.billing.me();
@@ -3165,6 +3263,47 @@ async function handleAction(action, el, e) {
     case 'goto-stoplist':  loadStoplist(); break;
     case 'goto-profile':   loadProfile(); break;
     case 'goto-pricing':   loadPricing(); break;
+    case 'goto-sales-clone': loadSalesClone(); break;
+
+    // Sales Clone
+    case 'sc-add': {
+      const tag = document.getElementById('sc-tag')?.value.trim() || null;
+      const text = document.getElementById('sc-text')?.value.trim();
+      if (!text) { toast('Пустой текст'); break; }
+      try {
+        await API.salesClone.add(text, tag);
+        toast('✓ Добавлен');
+        loadSalesClone();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'sc-bulk-paste': {
+      const tag = document.getElementById('sc-tag')?.value.trim() || null;
+      const raw = document.getElementById('sc-bulk')?.value.trim();
+      if (!raw) { toast('Пустой ввод'); break; }
+      try {
+        const r = await API.salesClone.bulkPaste(raw, tag);
+        toast(`✓ +${r.added}`);
+        loadSalesClone();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    // sc-file-pick обрабатывается в document.change listener, не в click switch
+    case 'sc-del': {
+      const id = el.dataset.id;
+      try { await API.salesClone.remove(id); loadSalesClone(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'sc-clear-all': {
+      if (!confirm('Удалить ВСЕ сэмплы?')) break;
+      try {
+        const r = await API.salesClone.clearAll();
+        toast(`✓ удалено ${r.deleted}`);
+        loadSalesClone();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
     case 'pricing-contact': openTgUser('k_gaft'); break;
 
     // Guru: открыть модалку настройки режима
