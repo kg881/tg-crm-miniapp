@@ -2193,12 +2193,26 @@ const screens = {
         <div class="muted small" style="margin-top:6px;line-height:1.5">
           Загрузи демо-видео, прайс-PDF, кейсы, скриншоты. Guru сам решит когда какой файл приатачить
           в ответе лиду — вместо плейсхолдера «[ссылка на демо]» уйдёт реальный файл с твоим коротким комментом.
-          <br><b>Лимит: 95 MB на файл</b> (упирается в туннель, не в приложение).
         </div>
       </div>
 
+      <div class="card" style="background:var(--mint);color:var(--ink);border:2px solid var(--ink)">
+        <div class="card-title" style="font-size:14px">⚡ Быстрая загрузка через бота (рекомендуется)</div>
+        <div class="small" style="margin-top:6px;line-height:1.5">
+          Большие файлы (>5 MB) грузи через <b>@bitok_crm_bot</b> — он минует туннель и сохранит мгновенно.<br><br>
+          Открой бота, прикрепи файл и в подписи (caption) напиши:<br>
+          <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Имя | тег | описание</code><br>
+          Пример: <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Demo 5min | demo | для тех кто просит демо</code>
+        </div>
+        <button class="btn full" style="margin-top:10px;background:var(--ink);color:var(--card)"
+                data-action="open-bot-for-asset">📤 Открыть бота</button>
+      </div>
+
       <div class="card">
-        <div class="card-title" style="font-size:14px">Загрузить файл</div>
+        <div class="card-title" style="font-size:14px">Или загрузить отсюда (медленно)</div>
+        <div class="muted small" style="margin-top:4px;line-height:1.4">
+          Только маленькие фото/PDF до ~5 MB. Для видео — бот сверху, иначе туннель порвёт соединение.
+        </div>
         <input id="as-name" placeholder="Название (для тебя): Demo BitOK 5min" class="pixel-input" style="margin-top:8px">
         <input id="as-tag"  placeholder="Тег: demo / pricing / onepager / case" class="pixel-input" style="margin-top:6px">
         <textarea id="as-desc" rows="2" placeholder="Когда слать (Guru это прочитает): «5-мин обзор продукта, для тех кто просит demo»" class="pixel-input" style="margin-top:6px"></textarea>
@@ -3461,6 +3475,13 @@ async function handleAction(action, el, e) {
     case 'goto-assets':      loadAssets(); break;
 
     // Assets (файлы Guru) — as-file-pick обрабатывается в change listener
+    case 'open-bot-for-asset': {
+      // Открываем диалог с ботом для аплоада крупных файлов
+      const link = 'https://t.me/bitok_crm_bot';
+      if (tg?.openTelegramLink) tg.openTelegramLink(link);
+      else window.open(link, '_blank');
+      break;
+    }
     case 'as-del': {
       const id = el.dataset.id;
       if (!confirm('Удалить файл?')) break;
