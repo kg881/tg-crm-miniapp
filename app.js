@@ -360,8 +360,8 @@ document.addEventListener('app:filechange', async (ev) => {
       const name = document.getElementById('as-name')?.value.trim() || f.name;
       const tag  = document.getElementById('as-tag')?.value.trim() || null;
       const desc = document.getElementById('as-desc')?.value.trim() || null;
-      if (f.size > 95 * 1024 * 1024) {
-        showErr(`Файл ${fmtMB(f.size)} MB больше лимита 500 MB`);
+      if (f.size > 2 * 1024 * 1024 * 1024) {
+        showErr(`Файл ${fmtMB(f.size)} MB больше лимита 2 GB`);
         el.value = '';
         return;
       }
@@ -373,10 +373,10 @@ document.addEventListener('app:filechange', async (ev) => {
         info.textContent = `0 / ${fmtMB(f.size)} MB · готовлюсь…`;
       }
       const t0 = Date.now();
-      let uploadDoneAt = 0;
-      let processingTimer = null;
       try {
-        const r = await API.assets.upload(f, name, desc, tag, (percent, loaded, total) => {
+        // Chunked upload (режем на 2MB куски): обходит throughput-лимит cloudflared.
+        // Маленькие файлы (1-2 chunk'а) тоже идут через chunked — единый код-путь.
+        const r = await API.assets.uploadChunked(f, name, desc, tag, (percent, loaded, total) => {
           if (!bar) return;
           bar.style.width = percent + '%';
           pct.textContent = percent + '%';
@@ -384,23 +384,12 @@ document.addEventListener('app:filechange', async (ev) => {
           const speed = loaded / elapsed;
           const eta = speed > 0 ? Math.round((total - loaded) / speed) : 0;
           info.textContent = `${fmtMB(loaded)} / ${fmtMB(total)} MB · ${(speed/1024/1024).toFixed(2)} MB/s · ~${eta}с`;
-          // 100% от XHR — это «байты ушли в сеть», но cloudflared/сервер ещё могут долго
-          // принимать и обрабатывать. Покажем это явно, чтобы не выглядело как зависание.
-          if (percent >= 100 && !processingTimer) {
-            uploadDoneAt = Date.now();
-            processingTimer = setInterval(() => {
-              const wait = Math.round((Date.now() - uploadDoneAt) / 1000);
-              info.textContent = `Файл ушёл, сервер обрабатывает… ${wait}с (cloudflared туннель медленный, ожидание до 2 мин)`;
-            }, 1000);
-          }
         });
-        if (processingTimer) clearInterval(processingTimer);
         if (info) info.textContent = `✓ Загружен «${r.name}»`;
         if (bar)  bar.style.width = '100%';
         if (pct)  pct.textContent = '100%';
         setTimeout(() => { if (wrap) wrap.style.display = 'none'; loadAssets(); }, 800);
       } catch (e) {
-        if (processingTimer) clearInterval(processingTimer);
         if (wrap) wrap.style.display = 'none';
         showErr(e.message);
       }
@@ -2196,29 +2185,16 @@ const screens = {
         </div>
       </div>
 
-      <div class="card" style="background:var(--mint);color:var(--ink);border:2px solid var(--ink)">
-        <div class="card-title" style="font-size:14px">⚡ Через бота (рекомендую)</div>
-        <div class="small" style="margin-top:6px;line-height:1.5">
-          Грузи через <b>@bitok_crm_bot</b> — минует туннель, сохраняет мгновенно.<br><br>
-          Открой бота, прикрепи файл и в caption напиши:<br>
-          <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Имя | тег | описание</code><br>
-          Пример: <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Demo 5min | demo | для тех кто просит демо</code><br>
-          <small style="opacity:.75">Лимит Telegram Bot API: 20 MB. Для 5-мин демо обычно хватает (сожми в H.264 ~500 KB/s).</small>
-        </div>
-        <button class="btn full" style="margin-top:10px;background:var(--ink);color:var(--card)"
-                data-action="open-bot-for-asset">📤 Открыть бота</button>
-      </div>
-
       <div class="card">
-        <div class="card-title" style="font-size:14px">Или загрузить отсюда (медленно)</div>
+        <div class="card-title" style="font-size:14px">Загрузить файл</div>
         <div class="muted small" style="margin-top:4px;line-height:1.4">
-          Только маленькие фото/PDF до ~5 MB. Для видео — бот сверху, иначе туннель порвёт соединение.
+          Видео MP4 / фото / PDF до 2 GB. Файл режется на 2-MB куски и шлётся по очереди — туннель не рвёт.
         </div>
         <input id="as-name" placeholder="Название (для тебя): Demo BitOK 5min" class="pixel-input" style="margin-top:8px">
         <input id="as-tag"  placeholder="Тег: demo / pricing / onepager / case" class="pixel-input" style="margin-top:6px">
         <textarea id="as-desc" rows="2" placeholder="Когда слать (Guru это прочитает): «5-мин обзор продукта, для тех кто просит demo»" class="pixel-input" style="margin-top:6px"></textarea>
         <label class="btn primary full" id="as-upload-btn" style="cursor:pointer;margin-top:10px;display:block;text-align:center">
-          📤 Выбрать файл (видео/фото/PDF, до 95 MB)
+          📤 Выбрать файл (MP4 / фото / PDF, до 2 GB)
           <input type="file" id="as-file" accept="video/*,image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display:none" data-action="as-file-pick">
         </label>
         <div id="as-progress-wrap" style="display:none;margin-top:10px">
@@ -2340,7 +2316,7 @@ const screens = {
         <div class="list-ico pix-red" data-pix="ninja"></div><div class="list-text"><div class="list-title">Sales Clone</div><div class="list-sub">Обучи Guru своему стилю продаж</div></div><div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-assets">
-        <div class="list-ico pix-gold" data-pix="paper"></div><div class="list-text"><div class="list-title">Файлы Guru</div><div class="list-sub">Видео/фото/PDF до 500 MB — Guru приатачит лиду</div></div><div class="list-arrow">›</div>
+        <div class="list-ico pix-gold" data-pix="paper"></div><div class="list-text"><div class="list-title">Файлы Guru</div><div class="list-sub">MP4 / фото / PDF до 2 GB — Guru приатачит лиду</div></div><div class="list-arrow">›</div>
       </div>
       <div class="section-title">Сообщество</div>
       <div class="list-item" data-action="goto-idea-submit">

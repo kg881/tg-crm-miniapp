@@ -226,6 +226,65 @@ const API = {
       xhr.timeout = 30 * 60 * 1000;   // 30 минут — cloudflared free тормозит multipart
       xhr.send(fd);
     }),
+    // Chunked upload — режем файл на куски, шлём по одному с retry.
+    // Обходит throughput-лимит cloudflared free (single большой request ему не по силам).
+    uploadChunked: async (file, name, description, tag, onProgress) => {
+      const init = await API.req('POST', '/api/assets/upload_init', {
+        filename: file.name,
+        total_size: file.size,
+        mime: file.type || null,
+        name: name || file.name,
+        description: description || null,
+        tag: tag || null,
+      });
+      const uploadId = init.upload_id;
+      const chunkSize = init.chunk_size || (2 * 1024 * 1024);
+      const initData = window.Telegram?.WebApp?.initData || '';
+      const total = file.size;
+
+      const sendChunkOnce = (offset, slice) => new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API.base()}/api/assets/upload_chunk/${uploadId}?offset=${offset}`);
+        xhr.setRequestHeader('X-Init-Data', initData);
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.timeout = 90 * 1000;
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && typeof onProgress === 'function') {
+            onProgress(Math.round((offset + e.loaded) / total * 100), offset + e.loaded, total);
+          }
+        };
+        xhr.onload = () => xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText.slice(0,200)}`));
+        xhr.onerror = () => reject(new Error('network'));
+        xhr.ontimeout = () => reject(new Error('timeout'));
+        xhr.send(slice);
+      });
+
+      let offset = 0;
+      while (offset < total) {
+        const end = Math.min(offset + chunkSize, total);
+        const slice = file.slice(offset, end);
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 4; attempt++) {
+          try {
+            await sendChunkOnce(offset, slice);
+            lastErr = null;
+            break;
+          } catch (e) {
+            lastErr = e;
+            const wait = Math.min(1000 * attempt * attempt, 8000);   // 1s, 4s, 8s, 8s
+            console.warn(`[upload] chunk @${offset} попытка ${attempt} упала: ${e.message}, retry через ${wait}ms`);
+            await new Promise(r => setTimeout(r, wait));
+          }
+        }
+        if (lastErr) throw new Error(`Chunk @${offset} провалился после 4 попыток: ${lastErr.message}`);
+        offset = end;
+        if (typeof onProgress === 'function') onProgress(Math.round(offset / total * 100), offset, total);
+      }
+
+      return await API.req('POST', `/api/assets/upload_finalize/${uploadId}`);
+    },
     update:   (id, meta)                    => API.req('PATCH',  `/api/assets/${id}`, meta),
     remove:   (id)                          => API.req('DELETE', `/api/assets/${id}`),
     fileUrl:  (id)                          => `${API.base()}/api/assets/${id}/file`,
