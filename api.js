@@ -194,14 +194,38 @@ const API = {
 
   assets: {
     list:     ()                            => API.req('GET',    '/api/assets'),
-    upload:   (file, name, description, tag) => {
+    // XHR с прогрессом — fetch() не даёт upload-events.
+    // onProgress(percent, loaded, total) вызывается во время заливки.
+    upload:   (file, name, description, tag, onProgress) => new Promise((resolve, reject) => {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('name', name || file.name);
       if (description) fd.append('description', description);
       if (tag) fd.append('tag', tag);
-      return API.req('POST', '/api/assets/upload', fd);
-    },
+      const initData = window.Telegram?.WebApp?.initData || '';
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API.base()}/api/assets/upload`);
+      xhr.setRequestHeader('X-Init-Data', initData);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && typeof onProgress === 'function') {
+          onProgress(Math.round(e.loaded / e.total * 100), e.loaded, e.total);
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)); }
+          catch (e) { reject(new Error(`bad JSON from server: ${e.message}`)); }
+        } else {
+          let detail = xhr.responseText;
+          try { const j = JSON.parse(xhr.responseText); detail = j.detail || j.error || JSON.stringify(j); } catch {}
+          reject(new Error(`${xhr.status} ${detail || xhr.statusText || 'upload failed'}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Сеть оборвалась (проверь интернет / VPN)'));
+      xhr.ontimeout = () => reject(new Error('Таймаут — файл слишком большой или сеть медленная'));
+      xhr.timeout = 10 * 60 * 1000;   // 10 минут на большое видео
+      xhr.send(fd);
+    }),
     update:   (id, meta)                    => API.req('PATCH',  `/api/assets/${id}`, meta),
     remove:   (id)                          => API.req('DELETE', `/api/assets/${id}`),
     fileUrl:  (id)                          => `${API.base()}/api/assets/${id}/file`,

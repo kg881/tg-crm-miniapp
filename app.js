@@ -341,33 +341,60 @@ document.addEventListener('app:filechange', async (ev) => {
     } catch (e) { toast(`Ошибка: ${e.message}`); }
   }
   if (action === 'as-file-pick') {
+    const wrap = document.getElementById('as-progress-wrap');
+    const bar  = document.getElementById('as-progress-bar');
+    const pct  = document.getElementById('as-progress-pct');
+    const info = document.getElementById('as-progress-info');
+    const nameLbl = document.getElementById('as-progress-name');
+    const errDiv  = document.getElementById('as-error');
+    const showErr = (m) => {
+      if (errDiv) { errDiv.style.display = 'block'; errDiv.textContent = '⚠️ ' + m; }
+      console.error('[upload]', m);
+      try { toast('Ошибка загрузки: ' + m); } catch {}
+    };
+    const fmtMB = (b) => (b/1024/1024).toFixed(b<1024*1024 ? 2 : 1);
     try {
+      if (errDiv) errDiv.style.display = 'none';
       const f = el.files?.[0];
       if (!f) return;
       const name = document.getElementById('as-name')?.value.trim() || f.name;
       const tag  = document.getElementById('as-tag')?.value.trim() || null;
       const desc = document.getElementById('as-desc')?.value.trim() || null;
-      if (f.size > 50 * 1024 * 1024) {
-        toast(`Файл больше 50 MB — отклонено`);
+      if (f.size > 95 * 1024 * 1024) {
+        showErr(`Файл ${fmtMB(f.size)} MB больше лимита 500 MB`);
         el.value = '';
         return;
       }
-      // Тихий статус прямо на кнопке (без popup'а, чтобы не дёргать TG dialog)
-      const lbl = el.closest('label');
-      const origHTML = lbl ? lbl.innerHTML : null;
-      if (lbl) lbl.innerHTML = `⏳ Загружаю ${f.name}… (${Math.round(f.size/1024)} KB)`;
+      if (wrap) {
+        wrap.style.display = 'block';
+        nameLbl.textContent = f.name;
+        bar.style.width = '0%';
+        pct.textContent = '0%';
+        info.textContent = `0 / ${fmtMB(f.size)} MB · готовлюсь…`;
+      }
+      const t0 = Date.now();
       try {
-        const r = await API.assets.upload(f, name, desc, tag);
-        toast(`✓ Загружен «${r.name}» (id ${r.id})`);
-        loadAssets();
+        const r = await API.assets.upload(f, name, desc, tag, (percent, loaded, total) => {
+          if (!bar) return;
+          bar.style.width = percent + '%';
+          pct.textContent = percent + '%';
+          const elapsed = Math.max(0.1, (Date.now() - t0) / 1000);
+          const speed = loaded / elapsed;   // bytes/sec
+          const eta = speed > 0 ? Math.round((total - loaded) / speed) : 0;
+          info.textContent = `${fmtMB(loaded)} / ${fmtMB(total)} MB · ${(speed/1024/1024).toFixed(2)} MB/s · ~${eta}с`;
+        });
+        if (info) info.textContent = `✓ Загружен «${r.name}»`;
+        if (bar)  bar.style.width = '100%';
+        if (pct)  pct.textContent = '100%';
+        setTimeout(() => { if (wrap) wrap.style.display = 'none'; loadAssets(); }, 800);
       } catch (e) {
-        toast(`Ошибка загрузки: ${e.message}`);
-        if (lbl && origHTML !== null) lbl.innerHTML = origHTML;
+        if (wrap) wrap.style.display = 'none';
+        showErr(e.message);
       }
       el.value = '';
     } catch (e) {
       console.error('[as-file-pick handler crash]', e);
-      toast(`Сбой: ${e.message}`);
+      showErr('Сбой: ' + e.message);
     }
   }
 });
@@ -2153,6 +2180,7 @@ const screens = {
         <div class="muted small" style="margin-top:6px;line-height:1.5">
           Загрузи демо-видео, прайс-PDF, кейсы, скриншоты. Guru сам решит когда какой файл приатачить
           в ответе лиду — вместо плейсхолдера «[ссылка на демо]» уйдёт реальный файл с твоим коротким комментом.
+          <br><b>Лимит: 95 MB на файл</b> (упирается в туннель, не в приложение).
         </div>
       </div>
 
@@ -2161,10 +2189,19 @@ const screens = {
         <input id="as-name" placeholder="Название (для тебя): Demo BitOK 5min" class="pixel-input" style="margin-top:8px">
         <input id="as-tag"  placeholder="Тег: demo / pricing / onepager / case" class="pixel-input" style="margin-top:6px">
         <textarea id="as-desc" rows="2" placeholder="Когда слать (Guru это прочитает): «5-мин обзор продукта, для тех кто просит demo»" class="pixel-input" style="margin-top:6px"></textarea>
-        <label class="btn primary full" style="cursor:pointer;margin-top:10px;display:block;text-align:center">
-          📤 Выбрать файл (видео/фото/PDF, до 50 MB)
+        <label class="btn primary full" id="as-upload-btn" style="cursor:pointer;margin-top:10px;display:block;text-align:center">
+          📤 Выбрать файл (видео/фото/PDF, до 95 MB)
           <input type="file" id="as-file" accept="video/*,image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display:none" data-action="as-file-pick">
         </label>
+        <div id="as-progress-wrap" style="display:none;margin-top:10px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span id="as-progress-name" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%"></span>
+            <span id="as-progress-pct" class="num">0%</span>
+          </div>
+          <div class="progress"><div id="as-progress-bar" style="width:0%"></div></div>
+          <div id="as-progress-info" class="muted small" style="margin-top:4px"></div>
+        </div>
+        <div id="as-error" style="display:none;margin-top:10px;padding:8px 10px;background:var(--red);color:var(--card);font-size:13px;border:1px solid var(--ink)"></div>
       </div>
 
       <div class="head-row" style="margin-top:14px"><h3 style="font-size:14px">Файлы (${items.length})</h3></div>
@@ -2275,7 +2312,7 @@ const screens = {
         <div class="list-ico pix-red" data-pix="ninja"></div><div class="list-text"><div class="list-title">Sales Clone</div><div class="list-sub">Обучи Guru своему стилю продаж</div></div><div class="list-arrow">›</div>
       </div>
       <div class="list-item" data-action="goto-assets">
-        <div class="list-ico pix-gold" data-pix="paper"></div><div class="list-text"><div class="list-title">Файлы Guru</div><div class="list-sub">Видео, фото, PDF — приатачит к лидам когда нужно</div></div><div class="list-arrow">›</div>
+        <div class="list-ico pix-gold" data-pix="paper"></div><div class="list-text"><div class="list-title">Файлы Guru</div><div class="list-sub">Видео/фото/PDF до 500 MB — Guru приатачит лиду</div></div><div class="list-arrow">›</div>
       </div>
       <div class="section-title">Сообщество</div>
       <div class="list-item" data-action="goto-idea-submit">
