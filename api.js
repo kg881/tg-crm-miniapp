@@ -192,6 +192,21 @@ const API = {
     putSettings: (data)            => API.req('PUT',  '/api/guru/settings', data),
   },
 
+  assets: {
+    list:     ()                            => API.req('GET',    '/api/assets'),
+    upload:   (file, name, description, tag) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('name', name || file.name);
+      if (description) fd.append('description', description);
+      if (tag) fd.append('tag', tag);
+      return API.req('POST', '/api/assets/upload', fd);
+    },
+    update:   (id, meta)                    => API.req('PATCH',  `/api/assets/${id}`, meta),
+    remove:   (id)                          => API.req('DELETE', `/api/assets/${id}`),
+    fileUrl:  (id)                          => `${API.base()}/api/assets/${id}/file`,
+  },
+
   // URL аватарки (для <img src="...">)
   avatarUrl: (tgId) => `${API.base()}/api/avatars/${tgId}`,
 };

@@ -648,6 +648,12 @@ main {
   font-family: var(--font-ui); font-size: 13px; font-style: italic;
   background: rgba(26,20,17,.08); padding: 7px 10px; border: 1px solid var(--ink);
 }
+.guru-card-attach {
+  font-family: var(--font-ui); font-size: 12px;
+  background: var(--gold); color: var(--ink);
+  padding: 6px 10px; border: 1px solid var(--ink);
+  font-weight: 600;
+}
 .guru-draft {
   width: 100%; padding: 10px 12px;
   border: 2px solid var(--ink);

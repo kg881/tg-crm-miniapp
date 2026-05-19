@@ -336,6 +336,25 @@ document.addEventListener('app:filechange', async (ev) => {
       loadSalesClone();
     } catch (e) { toast(`Ошибка: ${e.message}`); }
   }
+  if (action === 'as-file-pick') {
+    const f = el.files?.[0];
+    if (!f) return;
+    const name = document.getElementById('as-name')?.value.trim() || f.name;
+    const tag  = document.getElementById('as-tag')?.value.trim() || null;
+    const desc = document.getElementById('as-desc')?.value.trim() || null;
+    if (f.size > 50 * 1024 * 1024) {
+      toast(`Файл больше 50 MB — отклонено`);
+      el.value = '';
+      return;
+    }
+    toast(`⏳ Загружаю ${f.name}…`);
+    try {
+      const r = await API.assets.upload(f, name, desc, tag);
+      toast(`✓ Загружен «${r.name}» (id ${r.id})`);
+      loadAssets();
+    } catch (e) { toast(`Ошибка: ${e.message}`); }
+    el.value = '';
+  }
 });
 
 // ===== FAB (плавающая «+» с раскрывающимися действиями) =====
@@ -1966,6 +1985,7 @@ const screens = {
           <div class="guru-card-meta">${escape(a.status)}${a.trigger === 'incoming_reply' ? (a.auto ? ' · авто' : ' · ждёт апрува') : ''}</div>
         </div>
         ${a.intent ? `<div class="guru-card-intent">${a.trigger === 'incoming_reply' ? '<span class="muted small">Входящее:</span> ' : ''}«${escape(a.intent.replace(/^Ответ на: «|»$/g,''))}»</div>` : ''}
+        ${a.asset_id ? `<div class="guru-card-attach">📎 приложен файл #${a.asset_id} — уйдёт вместе с текстом</div>` : ''}
         <textarea class="guru-draft" id="guru-draft-${a.id}" rows="3" ${a.status !== 'pending' ? 'disabled' : ''}>${escape(a.draft_text || '')}</textarea>
         ${a.status === 'pending' ? `
           <div class="guru-actions">
@@ -2099,6 +2119,66 @@ const screens = {
     </div>`;
   },
 
+  // ---------- ASSETS (файлы Guru) ----------
+  assets: (st) => {
+    const items = st?.items;
+    if (items === undefined) {
+      return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю</div></div></div>`;
+    }
+    const kindIcon = { video: '🎥', photo: '🖼', pdf: '📄', doc: '📎' };
+    const fmtSize = (b) => b < 1024*1024 ? `${(b/1024).toFixed(0)} KB` : `${(b/1024/1024).toFixed(1)} MB`;
+    return `
+    <div class="screen">
+      <div class="head-row"><h2>📎 Файлы Guru</h2>
+        <div class="muted small">${items.length} шт.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:14px">Как это работает</div>
+        <div class="muted small" style="margin-top:6px;line-height:1.5">
+          Загрузи демо-видео, прайс-PDF, кейсы, скриншоты. Guru сам решит когда какой файл приатачить
+          в ответе лиду — вместо плейсхолдера «[ссылка на демо]» уйдёт реальный файл с твоим коротким комментом.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:14px">Загрузить файл</div>
+        <input id="as-name" placeholder="Название (для тебя): Demo BitOK 5min" class="pixel-input" style="margin-top:8px">
+        <input id="as-tag"  placeholder="Тег: demo / pricing / onepager / case" class="pixel-input" style="margin-top:6px">
+        <textarea id="as-desc" rows="2" placeholder="Когда слать (Guru это прочитает): «5-мин обзор продукта, для тех кто просит demo»" class="pixel-input" style="margin-top:6px"></textarea>
+        <label class="btn primary full" style="cursor:pointer;margin-top:10px;display:block;text-align:center">
+          📤 Выбрать файл (видео/фото/PDF, до 50 MB)
+          <input type="file" id="as-file" accept="video/*,image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display:none" data-action="as-file-pick">
+        </label>
+      </div>
+
+      <div class="head-row" style="margin-top:14px"><h3 style="font-size:14px">Файлы (${items.length})</h3></div>
+      <div class="card" style="padding:0">
+        ${items.length === 0 ? `
+          <div class="empty" style="padding:24px">
+            <div class="empty-ico" data-pix="paper"></div>
+            <div class="empty-title">Пока пусто</div>
+            <div class="muted small">Залей хотя бы demo-видео — Guru начнёт его слать когда лид просит демо.</div>
+          </div>` : items.map(a => `
+          <div class="sc-row" style="flex-direction:column;align-items:stretch">
+            <div style="display:flex;gap:10px;align-items:center">
+              <div style="font-size:22px">${kindIcon[a.kind] || '📎'}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600">${escape(a.name)}</div>
+                <div class="muted small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(a.filename)} · ${fmtSize(a.size_bytes)}</div>
+              </div>
+              <button class="btn ghost small" data-action="as-del" data-id="${a.id}" title="Удалить">✕</button>
+            </div>
+            ${a.description ? `<div class="muted small" style="margin-top:6px;line-height:1.4">${escape(a.description)}</div>` : ''}
+            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+              ${a.tag ? `<span class="pill gold">${escape(a.tag)}</span>` : ''}
+              <span class="pill ink">id ${a.id}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  },
+
   // ---------- PRICING ----------
   pricing: (st) => {
     const me = st?.me;
@@ -2178,6 +2258,9 @@ const screens = {
       </div>
       <div class="list-item" data-action="goto-sales-clone">
         <div class="list-ico pix-red" data-pix="ninja"></div><div class="list-text"><div class="list-title">Sales Clone</div><div class="list-sub">Обучи Guru своему стилю продаж</div></div><div class="list-arrow">›</div>
+      </div>
+      <div class="list-item" data-action="goto-assets">
+        <div class="list-ico pix-gold" data-pix="paper"></div><div class="list-text"><div class="list-title">Файлы Guru</div><div class="list-sub">Видео, фото, PDF — приатачит к лидам когда нужно</div></div><div class="list-arrow">›</div>
       </div>
       <div class="section-title">Сообщество</div>
       <div class="list-item" data-action="goto-idea-submit">
@@ -2533,6 +2616,18 @@ async function loadPricing() {
   } catch (e) {
     render('pricing', { me: null });
     toast(`Не удалось загрузить тарифы: ${e.message}`);
+  }
+}
+
+async function loadAssets(silent=false) {
+  if (silent && currentScreen !== 'assets') return;
+  if (!silent) render('assets', { items: undefined });
+  try {
+    const items = await API.assets.list();
+    render('assets', { items });
+  } catch (e) {
+    render('assets', { items: [] });
+    toast(`Ошибка: ${e.message}`);
   }
 }
 
@@ -3298,6 +3393,16 @@ async function handleAction(action, el, e) {
     case 'goto-profile':   loadProfile(); break;
     case 'goto-pricing':   loadPricing(); break;
     case 'goto-sales-clone': loadSalesClone(); break;
+    case 'goto-assets':      loadAssets(); break;
+
+    // Assets (файлы Guru) — as-file-pick обрабатывается в change listener
+    case 'as-del': {
+      const id = el.dataset.id;
+      if (!confirm('Удалить файл?')) break;
+      try { await API.assets.remove(id); toast('✓ удалён'); loadAssets(); }
+      catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
 
     // Sales Clone
     case 'sc-add': {
