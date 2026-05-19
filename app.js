@@ -2197,12 +2197,13 @@ const screens = {
       </div>
 
       <div class="card" style="background:var(--mint);color:var(--ink);border:2px solid var(--ink)">
-        <div class="card-title" style="font-size:14px">⚡ Быстрая загрузка через бота (рекомендуется)</div>
+        <div class="card-title" style="font-size:14px">⚡ Через бота (рекомендую)</div>
         <div class="small" style="margin-top:6px;line-height:1.5">
-          Большие файлы (>5 MB) грузи через <b>@bitok_crm_bot</b> — он минует туннель и сохранит мгновенно.<br><br>
-          Открой бота, прикрепи файл и в подписи (caption) напиши:<br>
+          Грузи через <b>@bitok_crm_bot</b> — минует туннель, сохраняет мгновенно.<br><br>
+          Открой бота, прикрепи файл и в caption напиши:<br>
           <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Имя | тег | описание</code><br>
-          Пример: <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Demo 5min | demo | для тех кто просит демо</code>
+          Пример: <code style="background:var(--paper);padding:2px 6px;display:inline-block;margin-top:4px">asset: Demo 5min | demo | для тех кто просит демо</code><br>
+          <small style="opacity:.75">Лимит Telegram Bot API: 20 MB. Для 5-мин демо обычно хватает (сожми в H.264 ~500 KB/s).</small>
         </div>
         <button class="btn full" style="margin-top:10px;background:var(--ink);color:var(--card)"
                 data-action="open-bot-for-asset">📤 Открыть бота</button>
