@@ -373,21 +373,34 @@ document.addEventListener('app:filechange', async (ev) => {
         info.textContent = `0 / ${fmtMB(f.size)} MB · готовлюсь…`;
       }
       const t0 = Date.now();
+      let uploadDoneAt = 0;
+      let processingTimer = null;
       try {
         const r = await API.assets.upload(f, name, desc, tag, (percent, loaded, total) => {
           if (!bar) return;
           bar.style.width = percent + '%';
           pct.textContent = percent + '%';
           const elapsed = Math.max(0.1, (Date.now() - t0) / 1000);
-          const speed = loaded / elapsed;   // bytes/sec
+          const speed = loaded / elapsed;
           const eta = speed > 0 ? Math.round((total - loaded) / speed) : 0;
           info.textContent = `${fmtMB(loaded)} / ${fmtMB(total)} MB · ${(speed/1024/1024).toFixed(2)} MB/s · ~${eta}с`;
+          // 100% от XHR — это «байты ушли в сеть», но cloudflared/сервер ещё могут долго
+          // принимать и обрабатывать. Покажем это явно, чтобы не выглядело как зависание.
+          if (percent >= 100 && !processingTimer) {
+            uploadDoneAt = Date.now();
+            processingTimer = setInterval(() => {
+              const wait = Math.round((Date.now() - uploadDoneAt) / 1000);
+              info.textContent = `Файл ушёл, сервер обрабатывает… ${wait}с (cloudflared туннель медленный, ожидание до 2 мин)`;
+            }, 1000);
+          }
         });
+        if (processingTimer) clearInterval(processingTimer);
         if (info) info.textContent = `✓ Загружен «${r.name}»`;
         if (bar)  bar.style.width = '100%';
         if (pct)  pct.textContent = '100%';
         setTimeout(() => { if (wrap) wrap.style.display = 'none'; loadAssets(); }, 800);
       } catch (e) {
+        if (processingTimer) clearInterval(processingTimer);
         if (wrap) wrap.style.display = 'none';
         showErr(e.message);
       }

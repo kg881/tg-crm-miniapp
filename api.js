@@ -222,8 +222,8 @@ const API = {
         }
       };
       xhr.onerror = () => reject(new Error('Сеть оборвалась (проверь интернет / VPN)'));
-      xhr.ontimeout = () => reject(new Error('Таймаут — файл слишком большой или сеть медленная'));
-      xhr.timeout = 10 * 60 * 1000;   // 10 минут на большое видео
+      xhr.ontimeout = () => reject(new Error('Таймаут (30 мин) — файл слишком большой или сеть медленная'));
+      xhr.timeout = 30 * 60 * 1000;   // 30 минут — cloudflared free тормозит multipart
       xhr.send(fd);
     }),
     update:   (id, meta)                    => API.req('PATCH',  `/api/assets/${id}`, meta),
