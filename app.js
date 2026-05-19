@@ -1963,7 +1963,7 @@ const screens = {
       <div class="guru-card guru-card-${escape(a.status)}" data-act-id="${a.id}">
         <div class="guru-card-head">
           <div class="guru-card-title">${a.trigger === 'incoming_reply' ? '📨 Ответ лиду:' : '✎ Черновик для:'} <b>${escape(a.target_label || a.target_username || a.target_phone || '?')}</b></div>
-          <div class="guru-card-meta">${escape(a.status)}${a.trigger === 'incoming_reply' ? ' · авто' : ''}</div>
+          <div class="guru-card-meta">${escape(a.status)}${a.trigger === 'incoming_reply' ? (a.auto ? ' · авто' : ' · ждёт апрува') : ''}</div>
         </div>
         ${a.intent ? `<div class="guru-card-intent">${a.trigger === 'incoming_reply' ? '<span class="muted small">Входящее:</span> ' : ''}«${escape(a.intent.replace(/^Ответ на: «|»$/g,''))}»</div>` : ''}
         <textarea class="guru-draft" id="guru-draft-${a.id}" rows="3" ${a.status !== 'pending' ? 'disabled' : ''}>${escape(a.draft_text || '')}</textarea>
@@ -3367,7 +3367,7 @@ async function handleAction(action, el, e) {
         <div class="modal-backdrop" data-action="close-modal">
           <div class="modal-sheet">
             <div class="modal-title">Режим Guru</div>
-            <div class="muted small" style="margin:4px 0 12px">Применяется к НОВЫМ входящим перепискам.</div>
+            <div class="muted small" style="margin:4px 0 12px">Применяется ко ВСЕМ перепискам${total ? ` (${total} шт.)` : ''}, включая текущие висящие черновики.</div>
             ${s.modes.map(m => `
               <button class="modal-row ${m===s.default_mode?'modal-row-active':''}"
                       data-action="set-guru-default-modal" data-mode="${m}">
@@ -3375,7 +3375,6 @@ async function handleAction(action, el, e) {
                 ${m===s.default_mode?'<span class="muted small"> · текущий</span>':''}
               </button>
             `).join('')}
-            ${total > 0 ? `<button class="btn full" style="margin-top:10px" data-action="apply-guru-mode-all-modal" data-mode="${s.default_mode}">Применить к ${total} существующим перепискам</button>` : ''}
             <button class="btn ghost full" style="margin-top:8px" data-action="close-modal">Закрыть</button>
           </div>
         </div>`;
@@ -3395,8 +3394,12 @@ async function handleAction(action, el, e) {
     case 'set-guru-default-modal': {
       const mode = el.dataset.mode;
       try {
-        await API.guru.putSettings({ default_mode: mode, apply_to_all: false });
-        toast(`Режим: ${mode === 'full_access' ? 'AUTO' : mode === 'off' ? 'OFF' : 'DRAFT'}`);
+        // apply_to_all=true — режим из верхнего бара действует и на все существующие переписки,
+        // плюс при AUTO добивает висящие pending incoming_reply.
+        const r = await API.guru.putSettings({ default_mode: mode, apply_to_all: true });
+        const label = mode === 'full_access' ? 'AUTO' : mode === 'off' ? 'OFF' : 'DRAFT';
+        const extra = r.executed_pending ? ` · авто-отправлено ${r.executed_pending}` : '';
+        toast(`Режим: ${label} (${r.updated_convs} переписок)${extra}`);
         document.getElementById('guru-settings-modal')?.remove();
         _guruHash = '';
         loadGuru(true);
