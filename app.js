@@ -208,7 +208,11 @@ window.__cwToggleAb = (on) => {
   render('campaign_wizard', { ...w, data: { ...w.data, ab_mode: on, ...(on ? {} : { template_id_b: null }) } });
 };
 const haptic = () => tg?.HapticFeedback?.impactOccurred?.('light');
-const toast = (msg) => tg?.showAlert?.(msg) || alert(msg);
+const toast = (msg) => {
+  // Не даём упасть async handler'ам: в TG 6.0 showAlert throws WebAppMethodUnsupported.
+  try { if (tg?.showAlert) { tg.showAlert(msg); return; } } catch (e) {}
+  try { alert(msg); } catch (e) { console.log('[toast]', msg); }
+};
 const confirm_ = (msg) => new Promise(r => tg?.showConfirm?.(msg, r) || r(window.confirm(msg)));
 const prompt_ = (msg, def='') => window.prompt(msg, def);
 const openLink = (url) => tg?.openTelegramLink ? tg.openTelegramLink(url.replace('https://t.me/', 'https://t.me/')) : window.open(url, '_blank');
@@ -337,23 +341,34 @@ document.addEventListener('app:filechange', async (ev) => {
     } catch (e) { toast(`Ошибка: ${e.message}`); }
   }
   if (action === 'as-file-pick') {
-    const f = el.files?.[0];
-    if (!f) return;
-    const name = document.getElementById('as-name')?.value.trim() || f.name;
-    const tag  = document.getElementById('as-tag')?.value.trim() || null;
-    const desc = document.getElementById('as-desc')?.value.trim() || null;
-    if (f.size > 50 * 1024 * 1024) {
-      toast(`Файл больше 50 MB — отклонено`);
-      el.value = '';
-      return;
-    }
-    toast(`⏳ Загружаю ${f.name}…`);
     try {
-      const r = await API.assets.upload(f, name, desc, tag);
-      toast(`✓ Загружен «${r.name}» (id ${r.id})`);
-      loadAssets();
-    } catch (e) { toast(`Ошибка: ${e.message}`); }
-    el.value = '';
+      const f = el.files?.[0];
+      if (!f) return;
+      const name = document.getElementById('as-name')?.value.trim() || f.name;
+      const tag  = document.getElementById('as-tag')?.value.trim() || null;
+      const desc = document.getElementById('as-desc')?.value.trim() || null;
+      if (f.size > 50 * 1024 * 1024) {
+        toast(`Файл больше 50 MB — отклонено`);
+        el.value = '';
+        return;
+      }
+      // Тихий статус прямо на кнопке (без popup'а, чтобы не дёргать TG dialog)
+      const lbl = el.closest('label');
+      const origHTML = lbl ? lbl.innerHTML : null;
+      if (lbl) lbl.innerHTML = `⏳ Загружаю ${f.name}… (${Math.round(f.size/1024)} KB)`;
+      try {
+        const r = await API.assets.upload(f, name, desc, tag);
+        toast(`✓ Загружен «${r.name}» (id ${r.id})`);
+        loadAssets();
+      } catch (e) {
+        toast(`Ошибка загрузки: ${e.message}`);
+        if (lbl && origHTML !== null) lbl.innerHTML = origHTML;
+      }
+      el.value = '';
+    } catch (e) {
+      console.error('[as-file-pick handler crash]', e);
+      toast(`Сбой: ${e.message}`);
+    }
   }
 });
 
