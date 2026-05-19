@@ -177,6 +177,7 @@ const API = {
     },
     remove:    (id)            => API.req('DELETE', `/api/sales_clone/${id}`),
     clearAll:  ()              => API.req('DELETE', '/api/sales_clone'),
+    importFromTgFolders: (data) => API.req('POST', '/api/sales_clone/import_from_tg_folders', data),
   },
 
   guru: {

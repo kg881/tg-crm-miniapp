@@ -1515,9 +1515,15 @@ const screens = {
     const folders = st?.folders;
     const loading = st?.loading;
     const err = st?.error;
+    const isSC = st?.mode === 'sales_clone';
+    const title = isSC ? 'Sales Clone · импорт из папок' : 'Синк ТГ-папок';
+    const folderHint = isSC
+      ? 'Выберите папку — Sales Clone заберёт ваши исходящие реплики из всех 1-на-1 чатов в ней.'
+      : '';
     return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Синк ТГ-папок</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">${title}</h2></div>
+        ${isSC ? `<div class="muted small" style="margin:-6px 0 10px 2px">${folderHint}</div>` : ''}
         ${accs.length === 0 ? `
           <div class="card" style="background:#fef3c7;color:#92400e;font-size:13px">
             Нет активных аккаунтов. Подключите хотя бы один — папки лежат внутри ТГ-аккаунта.
@@ -1540,7 +1546,7 @@ const screens = {
                   <div style="font-weight:600">${escape(f.title)}</div>
                   <div style="font-size:12px;color:var(--text-muted)">${f.count} чатов в папке</div>
                 </div>
-                <span class="lead-score cold">импорт</span>
+                <span class="lead-score ${isSC ? 'gold' : 'cold'}">${isSC ? 'обучить' : 'импорт'}</span>
               </div>
             `).join('')) : ''}
         `}
@@ -2056,6 +2062,18 @@ const screens = {
         </div>
         <div class="muted small" style="margin-top:6px">
           .txt — блоки разделённые пустой строкой. .json — массив строк или Telegram Desktop export.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:14px">Импорт из своего Telegram</div>
+        <div class="muted small" style="margin-top:6px;line-height:1.5">
+          Подключи свой TG-аккаунт и выбери папки с реальными переписками с клиентами —
+          Sales Clone сам выдернет твои исходящие реплики и натренируется на них.
+        </div>
+        <button class="btn primary full" style="margin-top:10px" data-action="sc-import-tg">📁 Подключить TG и выбрать папки</button>
+        <div class="muted small" style="margin-top:6px">
+          Берутся только <b>исходящие</b> сообщения из 1-на-1 чатов за последние 180 дней.
         </div>
       </div>
 
@@ -2621,6 +2639,22 @@ async function handleAction(action, el, e) {
       const fname = el.dataset.fname;
       const st    = screenState.tg_folders;
       const accId = st.account_id;
+
+      // Режим импорта в Sales Clone: тренируем стиль Guru на моих out-сообщениях из чатов папки
+      if (st.mode === 'sales_clone') {
+        try {
+          toast('⏳ Собираю исходящие из папки…');
+          const r = await API.salesClone.importFromTgFolders({
+            account_id: accId, folder_ids: [fid],
+            days: 180, only_private: true,
+          });
+          toast(`✅ +${r.samples_added} сэмплов (чатов: ${r.chats_scanned})`);
+          loadSalesClone();
+        } catch (e) { toast(`Ошибка: ${e.message}`); }
+        break;
+      }
+
+      // Обычный режим — импорт участников папки как лидов
       const list_name = `📁 ${fname} — ${new Date().toISOString().slice(0,10)}`;
       try {
         toast('⏳ Импортирую участников папки...');
@@ -3301,6 +3335,23 @@ async function handleAction(action, el, e) {
         const r = await API.salesClone.clearAll();
         toast(`✓ удалено ${r.deleted}`);
         loadSalesClone();
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'sc-import-tg': {
+      try {
+        const accounts = await API.accounts.list();
+        const active = accounts.filter(a => a.status === 'active');
+        if (active.length === 0) {
+          if (confirm('Сначала подключи свой TG. Перейти в раздел аккаунтов?')) {
+            loadAccounts();
+          }
+          break;
+        }
+        render('tg_folders', {
+          accounts, folders: null, account_id: null,
+          mode: 'sales_clone',
+        });
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
