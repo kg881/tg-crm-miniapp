@@ -1106,6 +1106,45 @@ const screens = {
       const totalCap = aa.reduce((s,a)=>s+a.daily_limit,0);
       const days = totalCap ? Math.ceil((ll?.count||0) / totalCap) : '∞';
       const fuCount = (data.followups || []).filter(f => (f.body || '').trim()).length;
+      const previewLeads = st.previewLeads || [];
+      const expanded = st.previewExpanded || {};
+      const showAll = !!st.previewShowAll;
+      const visible = showAll ? previewLeads : previewLeads.slice(0, 5);
+      const emptyCount = previewLeads.filter(l => !(l.first_message||'').trim()).length;
+      const previewBlock = previewLeads.length ? `
+        <div class="card" style="margin-top:10px">
+          <div class="card-row">
+            <div class="card-title" style="font-size:14px">✉ Первые сообщения (${previewLeads.length})</div>
+            ${emptyCount ? `<span class="lead-score cold" title="лидов без first_message">${emptyCount} пустых</span>` : ''}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Тапни на лида чтобы раскрыть и поправить</div>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+            ${visible.map(l => {
+              const isOpen = !!expanded[l.id];
+              const msg = (l.first_message || '').trim();
+              const preview = msg ? msg.replace(/\n+/g,' ').slice(0,80) + (msg.length>80?'…':'') : '⚠ пусто — рассылка не уйдёт';
+              const label = escape(l.full_name || l.username || ('#'+l.id));
+              return `
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg-soft)">
+                  <div data-action="cw-preview-toggle" data-lid="${l.id}" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-weight:600;font-size:13px">${label}${l.username?` <span style="color:var(--text-muted);font-weight:400">@${escape(l.username)}</span>`:''}</div>
+                      ${!isOpen ? `<div style="font-size:12px;color:${msg?'var(--text-muted)':'#c54'};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escape(preview)}</div>` : ''}
+                    </div>
+                    <span style="color:var(--text-muted);font-size:12px">${isOpen?'▴':'▾'}</span>
+                  </div>
+                  ${isOpen ? `
+                    <textarea id="cw-msg-${l.id}" rows="4" style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;resize:vertical">${escape(msg)}</textarea>
+                    <div style="display:flex;gap:6px;margin-top:6px">
+                      <button class="btn secondary" style="flex:1;font-size:12px;padding:6px" data-action="cw-preview-toggle" data-lid="${l.id}">Закрыть</button>
+                      <button class="btn" style="flex:1;font-size:12px;padding:6px" data-action="cw-preview-save" data-lid="${l.id}">Сохранить</button>
+                    </div>
+                  ` : ''}
+                </div>`;
+            }).join('')}
+            ${(!showAll && previewLeads.length>5) ? `<button class="btn secondary" style="margin-top:4px;font-size:12px;padding:6px" data-action="cw-preview-show-all">Показать ещё (${previewLeads.length-5})</button>` : ''}
+          </div>
+        </div>` : '';
       return `
       <div class="screen">
         <div class="head-row"><h2 style="font-size:18px">Подтверждение · 4/4</h2></div>
@@ -1117,13 +1156,13 @@ const screens = {
           <div style="font-size:13px;color:var(--text-muted);margin-top:10px;line-height:1.7">
             <div>📋 Список: <b style="color:var(--text)">${escape(ll?.name||'?')}</b> (${ll?.count||0} лидов)</div>
             ${data.type==='dynamic' && (data.filter_config?.statuses||[]).length ? `<div>🔎 Фильтр: <b style="color:var(--text)">${(data.filter_config.statuses).map(escape).join(', ')}</b></div>` : ''}
-            <div>✉ Текст: <b style="color:var(--text)">первое сообщение из карточки каждого лида</b></div>
             <div>⚇ Аккаунтов: <b style="color:var(--text)">${aa.length}</b> · общий капасити <b style="color:var(--text)">${totalCap}/день</b></div>
             <div>⏱ Расчётно займёт: <b style="color:var(--text)">~${days} ${typeof days==='number' && days===1?'день':'дней'}</b></div>
             <div>↪ Цепочка касаний: <b style="color:var(--text)">${fuCount} follow-up${fuCount===1?'':'ов'}</b>${fuCount?' (1, 2, 3, 7, 14 дней)':' — без follow-up'}</div>
             ${data.type==='dynamic' ? `<div style="margin-top:6px;color:var(--accent)">↻ Новые лиды из списка будут добавляться в кампанию автоматически</div>` : ''}
           </div>
         </div>
+        ${previewBlock}
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-test-send">🧪 Сначала тест себе</button>
         <button class="btn full" style="margin-top:8px" data-action="cw-create-and-start">Создать и запустить</button>
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-create-only">Создать как draft</button>
@@ -3308,6 +3347,36 @@ async function handleAction(action, el, e) {
       render('campaign_wizard', { ...w, data: { ...w.data, type: t, filter_config: fc } });
       break;
     }
+    case 'cw-preview-toggle': {
+      const w = screenState.campaign_wizard;
+      const lid = parseInt(el.dataset.lid, 10);
+      const exp = { ...(w.previewExpanded || {}) };
+      exp[lid] = !exp[lid];
+      render('campaign_wizard', { ...w, previewExpanded: exp });
+      break;
+    }
+    case 'cw-preview-show-all': {
+      const w = screenState.campaign_wizard;
+      render('campaign_wizard', { ...w, previewShowAll: true });
+      break;
+    }
+    case 'cw-preview-save': {
+      const w = screenState.campaign_wizard;
+      const lid = parseInt(el.dataset.lid, 10);
+      const ta = document.getElementById(`cw-msg-${lid}`);
+      if (!ta) { toast('поле не найдено'); break; }
+      const newMsg = ta.value;
+      try {
+        await API.lists.updateLead(lid, { first_message: newMsg });
+        const leads = (w.previewLeads || []).map(l => l.id === lid ? { ...l, first_message: newMsg } : l);
+        const exp = { ...(w.previewExpanded || {}) }; exp[lid] = false;
+        render('campaign_wizard', { ...w, previewLeads: leads, previewExpanded: exp });
+        toast('Сохранено');
+      } catch (e) {
+        toast('Ошибка: ' + (e.message || e));
+      }
+      break;
+    }
     case 'cw-toggle-status': {
       const w = screenState.campaign_wizard;
       const s = el.dataset.status;
@@ -3366,6 +3435,12 @@ async function handleAction(action, el, e) {
         data = { ...data, followups: fus };
       }
       if (from === 3 && !(data.account_ids || []).length) { toast('Выберите хотя бы один аккаунт'); return; }
+      if (from === 3) {
+        let previewLeads = [];
+        try { previewLeads = await API.lists.leads(data.list_id) || []; } catch (e) {}
+        render('campaign_wizard', { ...w, step: 4, data, previewLeads, previewExpanded: {} });
+        break;
+      }
       render('campaign_wizard', { ...w, step: from + 1, data });
       break;
     }
