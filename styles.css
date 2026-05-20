@@ -290,6 +290,15 @@ main {
 .stage-chip.active { background: var(--ink); color: var(--card); }
 .stage-strip { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
 
+/* Переключатель языка лида (RU/EN) */
+.lang-chip {
+  font-family: var(--font-h); font-weight: 700;
+  font-size: 12px; padding: 6px 12px;
+  border: 2px solid var(--ink); background: var(--card); color: var(--ink);
+  cursor: pointer; user-select: none; border-radius: 0;
+}
+.lang-chip.active { background: var(--ink); color: var(--card); }
+
 /* ============================ PROGRESS ============================ */
 .progress, .progress-bar {
   height: 14px;

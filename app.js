@@ -97,6 +97,33 @@ function pixIcon(name, color = 'gold', size = 36) {
 const $ = (sel) => document.querySelector(sel);
 const initials = (n) => (n || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
 const escape = (s) => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Авто-детект языка: любая кириллица → 'ru', иначе 'en'.
+const detectLang = (...texts) => texts.some(t => t && /[А-Яа-яЁё]/.test(t)) ? 'ru' : 'en';
+
+// Подстановка переменных в текст шаблона по полям из формы лида.
+function renderTemplateVars(body, lang) {
+  if (!body) return '';
+  const name = (document.getElementById('le-name')?.value || '').trim().split(' ')[0];
+  const company = (document.getElementById('le-company')?.value || '').trim();
+  const username = (document.getElementById('le-username')?.value || '').trim().replace(/^@/, '');
+  const def = lang === 'en' ? 'friend' : 'друг';
+  return body
+    .replace(/\{\{first_name\}\}/g, name || def)
+    .replace(/\{\{full_name\}\}/g, (document.getElementById('le-name')?.value || '').trim())
+    .replace(/\{\{username\}\}/g, username ? `@${username}` : '')
+    .replace(/\{\{company\}\}/g, company);
+}
+
+// Выбор шаблона → подставляем в textarea первого сообщения с учётом языка.
+function applyTemplateToFirstMessage(option, lang) {
+  if (!option || !option.value) return;
+  const ru = option.dataset.body || '';
+  const en = option.dataset.bodyEn || '';
+  const pick = (lang === 'en' && en) ? en : ru;
+  const msgEl = document.getElementById('le-msg');
+  if (msgEl) msgEl.value = renderTemplateVars(pick, lang);
+}
 // Backend хранит naive UTC (datetime.utcnow), но отдаёт ISO без 'Z' →
 // форсим UTC и форматируем в МСК, чтобы время было одинаковое везде.
 const MSK = 'Europe/Moscow';
@@ -324,6 +351,11 @@ document.addEventListener('change', (e) => {
   // Файловые input'ы со своим data-action — триггерим общий dispatcher
   if (e.target.matches?.('input[type="file"][data-action]')) {
     document.dispatchEvent(new CustomEvent('app:filechange', { detail: { el: e.target } }));
+  }
+  // <select data-action="..."> — триггерим общий action-диспатчер при change
+  if (e.target.matches?.('select[data-action]')) {
+    const act = e.target.dataset.action;
+    if (act) handleAction(act, e.target, e);
   }
 });
 document.addEventListener('app:filechange', async (ev) => {
@@ -1213,6 +1245,9 @@ const screens = {
   // ---------- LEAD EDIT ----------
   lead_edit: (st) => {
     const l = st.lead || {};
+    const tmpls = st.templates || [];
+    const autoLang = detectLang(l.first_message, l.full_name, l.company);
+    const lang = (l.lang || autoLang || 'ru').toLowerCase();
     return `
       <div class="screen">
         <div class="head-row"><h2 style="font-size:18px">Редактировать лида</h2></div>
@@ -1230,8 +1265,26 @@ const screens = {
           <select id="le-status" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
             ${LEAD_STATUSES.map(s => `<option value="${escape(s)}" ${(l.status||'New')===s?'selected':''}>${escape(s)}</option>`).join('')}
           </select>
+
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Язык лида</label>
+          <div class="lang-toggle" style="display:flex;gap:6px;margin-top:4px">
+            <button type="button" class="lang-chip ${lang==='ru'?'active':''}" data-action="le-lang" data-lang="ru">🇷🇺 Русский</button>
+            <button type="button" class="lang-chip ${lang==='en'?'active':''}" data-action="le-lang" data-lang="en">🇬🇧 English</button>
+          </div>
+          <input type="hidden" id="le-lang" value="${escape(lang)}">
+
+          ${tmpls.length ? `
+            <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Шаблон первого сообщения</label>
+            <select id="le-tmpl" data-action="le-tmpl-pick"
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+              <option value="">— не выбран —</option>
+              ${tmpls.map(t => `<option value="${t.id}" data-body="${escape(t.body || '')}" data-body-en="${escape(t.body_en || '')}">${escape(t.name)}${t.body_en ? ' · RU/EN' : ' · RU'}</option>`).join('')}
+            </select>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Выбор подставит текст ниже с переменными {{first_name}}, {{company}}.</div>
+          ` : `<div style="font-size:11px;color:var(--text-muted);margin-top:12px">Нет сохранённых шаблонов — создай в разделе «Шаблоны».</div>`}
+
           <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Первое сообщение</label>
-          <textarea id="le-msg" placeholder="Привет! Видел..." rows="6"
+          <textarea id="le-msg" placeholder="${lang==='en'?'Hi! Saw that…':'Привет! Видел...'}" rows="6"
                     style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px;font-family:inherit;resize:vertical">${escape(l.first_message || '')}</textarea>
         </div>
         <button class="btn full" style="margin-top:8px" data-action="save-lead" data-id="${l.id}">Сохранить</button>
@@ -1275,10 +1328,16 @@ const screens = {
           <label style="font-size:12px;color:var(--text-muted)">Название</label>
           <input id="te-name" value="${escape(t.name || '')}" placeholder="Холодный, Q2"
                  style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Текст сообщения</label>
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">🇷🇺 Текст (RU)</label>
           <textarea id="te-body" rows="8" placeholder="Привет {{first_name}}! Видел что вы из {{company}}..."
                     style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px;font-family:inherit;resize:vertical">${escape(t.body || '')}</textarea>
           <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Переменные: {{first_name}}, {{full_name}}, {{username}}, {{company}}</div>
+
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">🇬🇧 Текст (EN) — опц., для англоязычных лидов</label>
+          <textarea id="te-body-en" rows="8" placeholder="Hi {{first_name}}! Saw you're at {{company}}..."
+                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px;font-family:inherit;resize:vertical">${escape(t.body_en || '')}</textarea>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Если пусто — для EN-лидов будет использован RU-текст.</div>
+
           <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">AI prompt (опционально, для генерации)</label>
           <textarea id="te-ai" rows="4" placeholder="Сгенерируй короткое холодное сообщение для CEO криптобиржи..."
                     style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(t.ai_prompt || '')}</textarea>
@@ -2985,13 +3044,38 @@ async function handleAction(action, el, e) {
     case 'open-list':        openList(parseInt(el.dataset.id, 10), el.querySelector('.lead-name')?.textContent); break;
     case 'add-lead-to-list': {
       const st = screenState.list_detail;
-      render('lead_edit', { lead: { id: 0, list_id: st.list_id, status: 'New' }, return_list_id: st.list_id, return_list_name: st.list_name });
+      let templates = [];
+      try { templates = await API.templates.list(); } catch {}
+      render('lead_edit', { lead: { id: 0, list_id: st.list_id, status: 'New' }, templates,
+                            return_list_id: st.list_id, return_list_name: st.list_name });
       break;
     }
     case 'edit-lead': {
       const id = parseInt(el.dataset.id, 10);
       const lead = (screenState.list_detail?.leads || []).find(l => l.id === id);
-      if (lead) render('lead_edit', { lead, return_list_id: screenState.list_detail.list_id, return_list_name: screenState.list_detail.list_name });
+      if (!lead) break;
+      let templates = [];
+      try { templates = await API.templates.list(); } catch {}
+      render('lead_edit', { lead, templates,
+                            return_list_id: screenState.list_detail.list_id,
+                            return_list_name: screenState.list_detail.list_name });
+      break;
+    }
+    case 'le-lang': {
+      const lang = el.dataset.lang || 'ru';
+      document.getElementById('le-lang').value = lang;
+      document.querySelectorAll('.lang-chip').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+      const tmplSel = document.getElementById('le-tmpl');
+      if (tmplSel && tmplSel.value) {
+        const opt = tmplSel.options[tmplSel.selectedIndex];
+        applyTemplateToFirstMessage(opt, lang);
+      }
+      break;
+    }
+    case 'le-tmpl-pick': {
+      const opt = el.options[el.selectedIndex];
+      const lang = document.getElementById('le-lang').value || 'ru';
+      applyTemplateToFirstMessage(opt, lang);
       break;
     }
     case 'save-lead': {
@@ -3002,6 +3086,7 @@ async function handleAction(action, el, e) {
         company: document.getElementById('le-company').value.trim() || null,
         first_message: document.getElementById('le-msg').value.trim() || null,
         status: document.getElementById('le-status').value,
+        lang: document.getElementById('le-lang')?.value || null,
       };
       try {
         if (id) await API.lists.updateLead(id, data);
@@ -3042,6 +3127,7 @@ async function handleAction(action, el, e) {
       const data = {
         name: document.getElementById('te-name').value.trim(),
         body: document.getElementById('te-body').value.trim(),
+        body_en: document.getElementById('te-body-en')?.value.trim() || null,
         ai_prompt: document.getElementById('te-ai').value.trim() || null,
       };
       if (!data.name || !data.body) { toast('Название и текст обязательны'); return; }
