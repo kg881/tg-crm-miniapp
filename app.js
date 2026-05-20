@@ -229,11 +229,6 @@ function _renderInboxSearch(value) {
 }
 window.__ldSearch = _renderListDetailSearch;
 window.__ibSearch = _renderInboxSearch;
-window.__cwToggleAb = (on) => {
-  const w = screenState.campaign_wizard;
-  if (!w) return;
-  render('campaign_wizard', { ...w, data: { ...w.data, ab_mode: on, ...(on ? {} : { template_id_b: null }) } });
-};
 const haptic = () => tg?.HapticFeedback?.impactOccurred?.('light');
 const toast = (msg) => {
   // Не даём упасть async handler'ам: в TG 6.0 showAlert throws WebAppMethodUnsupported.
@@ -990,7 +985,8 @@ const screens = {
     const tmpls = st?.templates ?? [];
     const accs  = st?.accounts ?? [];
     const data  = st?.data || {};
-    const stepDots = [1,2,3,4,5].map(n =>
+    const TOTAL_STEPS = 4;
+    const stepDots = Array.from({length: TOTAL_STEPS}, (_, i) => i+1).map(n =>
       `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${n<=step?'var(--accent)':'var(--border)'};margin-right:6px"></span>`
     ).join('');
     if (step === 1) {
@@ -999,7 +995,7 @@ const screens = {
       const pickedStatuses = new Set((data.filter_config?.statuses) || []);
       return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Новая кампания · 1/5</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Новая кампания · 1/4</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
 
         <div class="section-title">Тип</div>
@@ -1054,54 +1050,13 @@ const screens = {
       </div>`;
     }
     if (step === 2) {
-      const abMode = !!data.ab_mode;
-      return `
-      <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Шаблон · 2/5</h2></div>
-        <div style="margin-bottom:14px">${stepDots}</div>
-        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">
-          <input type="checkbox" id="cw-ab" ${abMode?'checked':''} onchange="window.__cwToggleAb(this.checked)" style="width:18px;height:18px">
-          <div>
-            <div style="font-weight:500;font-size:14px">A/B-тест: 2 варианта 50/50</div>
-            <div style="font-size:11px;color:var(--text-muted)">Sender раскидает оба текста поровну. Аналитика покажет какой работает лучше.</div>
-          </div>
-        </label>
-        ${abMode ? `<div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px">A — основной</div>` : ''}
-        ${tmpls.map(t => `
-          <div class="card" data-action="cw-pick-template" data-id="${t.id}" style="${data.template_id===t.id?'border:2px solid var(--accent)':''}">
-            <div class="card-row">
-              <div class="card-title">${escape(t.name)} ${data.template_id===t.id?'<span style="color:var(--accent);font-size:11px">A</span>':''}${data.template_id_b===t.id?'<span style="color:#f59e0b;font-size:11px">B</span>':''}</div>
-              ${(data.template_id===t.id||data.template_id_b===t.id) ? '<span style="color:var(--accent);font-size:18px">✓</span>' : ''}
-            </div>
-            <div style="font-size:13px;color:var(--text-muted);margin-top:6px">${escape((t.body || '').slice(0,140))}…</div>
-          </div>
-        `).join('')}
-        ${abMode ? `
-          <div style="font-size:12px;color:#f59e0b;font-weight:600;margin:12px 0 6px">B — вариант (выбери второй шаблон)</div>
-          ${tmpls.filter(t => t.id !== data.template_id).map(t => `
-            <div class="card" data-action="cw-pick-template-b" data-id="${t.id}" style="${data.template_id_b===t.id?'border:2px solid #f59e0b':''}">
-              <div class="card-row">
-                <div class="card-title">${escape(t.name)}</div>
-                ${data.template_id_b===t.id ? '<span style="color:#f59e0b;font-size:18px">✓</span>' : ''}
-              </div>
-              <div style="font-size:13px;color:var(--text-muted);margin-top:6px">${escape((t.body || '').slice(0,140))}…</div>
-            </div>
-          `).join('')}
-        ` : ''}
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="2">Назад</button>
-          <button class="btn" style="flex:1" data-action="cw-next" data-from="2">Далее</button>
-        </div>
-      </div>`;
-    }
-    if (step === 3) {
       // Цепочка касаний — 5 follow-up'ов с фиксированными задержками
       const labels = ['Через 1 день', 'Через 2 дня', 'Через 3 дня', 'Через неделю', 'Через 2 недели'];
       const fus = data.followups || [];
       const get = (i) => (fus.find(f => f.step_idx === i+1)?.body) || '';
       return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Цепочка касаний · 3/5</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Цепочка касаний · 2/4</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         <div class="card" style="background:#dbeafe;color:#1e3a8a;font-size:12px;padding:10px 12px">
           💡 Если лид не ответил на первое сообщение, эти follow-up'ы уйдут автоматически. Ответил на любом — цепочка останавливается. Пустое поле = шаг пропускается.
@@ -1115,16 +1070,16 @@ const screens = {
         `).join('')}
         <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Переменные {{first_name}}, {{full_name}}, {{username}}, {{company}} и spintax {{a|b|c}} работают так же как в шаблонах.</div>
         <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="3">Назад</button>
-          <button class="btn" style="flex:1" data-action="cw-next" data-from="3">Далее</button>
+          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="2">Назад</button>
+          <button class="btn" style="flex:1" data-action="cw-next" data-from="2">Далее</button>
         </div>
       </div>`;
     }
-    if (step === 4) {
+    if (step === 3) {
       const picked = data.account_ids || [];
       return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Аккаунты · 4/5</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Аккаунты · 3/4</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Выберите аккаунты для рассылки. Сообщения распределятся round-robin.</div>
         ${accs.map(a => {
@@ -1140,21 +1095,20 @@ const screens = {
           </div>`;
         }).join('')}
         <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="4">Назад</button>
-          <button class="btn" style="flex:1" data-action="cw-next" data-from="4">Далее</button>
+          <button class="btn secondary" style="flex:1" data-action="cw-back" data-from="3">Назад</button>
+          <button class="btn" style="flex:1" data-action="cw-next" data-from="3">Далее</button>
         </div>
       </div>`;
     }
-    if (step === 5) {
+    if (step === 4) {
       const ll = lists.find(l=>l.id===data.list_id);
-      const tt = tmpls.find(t=>t.id===data.template_id);
       const aa = accs.filter(a=>(data.account_ids||[]).includes(a.id));
       const totalCap = aa.reduce((s,a)=>s+a.daily_limit,0);
       const days = totalCap ? Math.ceil((ll?.count||0) / totalCap) : '∞';
       const fuCount = (data.followups || []).filter(f => (f.body || '').trim()).length;
       return `
       <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Подтверждение · 5/5</h2></div>
+        <div class="head-row"><h2 style="font-size:18px">Подтверждение · 4/4</h2></div>
         <div style="margin-bottom:14px">${stepDots}</div>
         <div class="card">
           <div class="card-row"><div class="card-title">${escape(data.name)}</div>
@@ -1163,7 +1117,7 @@ const screens = {
           <div style="font-size:13px;color:var(--text-muted);margin-top:10px;line-height:1.7">
             <div>📋 Список: <b style="color:var(--text)">${escape(ll?.name||'?')}</b> (${ll?.count||0} лидов)</div>
             ${data.type==='dynamic' && (data.filter_config?.statuses||[]).length ? `<div>🔎 Фильтр: <b style="color:var(--text)">${(data.filter_config.statuses).map(escape).join(', ')}</b></div>` : ''}
-            <div>✉ Шаблон: <b style="color:var(--text)">${escape(tt?.name||'?')}</b></div>
+            <div>✉ Текст: <b style="color:var(--text)">первое сообщение из карточки каждого лида</b></div>
             <div>⚇ Аккаунтов: <b style="color:var(--text)">${aa.length}</b> · общий капасити <b style="color:var(--text)">${totalCap}/день</b></div>
             <div>⏱ Расчётно займёт: <b style="color:var(--text)">~${days} ${typeof days==='number' && days===1?'день':'дней'}</b></div>
             <div>↪ Цепочка касаний: <b style="color:var(--text)">${fuCount} follow-up${fuCount===1?'':'ов'}</b>${fuCount?' (1, 2, 3, 7, 14 дней)':' — без follow-up'}</div>
@@ -1173,7 +1127,7 @@ const screens = {
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-test-send">🧪 Сначала тест себе</button>
         <button class="btn full" style="margin-top:8px" data-action="cw-create-and-start">Создать и запустить</button>
         <button class="btn full secondary" style="margin-top:8px" data-action="cw-create-only">Создать как draft</button>
-        <button class="btn full secondary" style="margin-top:8px" data-action="cw-back" data-from="4">Назад</button>
+        <button class="btn full secondary" style="margin-top:8px" data-action="cw-back" data-from="3">Назад</button>
       </div>`;
     }
   },
@@ -3384,20 +3338,6 @@ async function handleAction(action, el, e) {
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }
-    case 'cw-pick-template': {
-      const id = parseInt(el.dataset.id, 10);
-      const w = screenState.campaign_wizard;
-      // Если это был template_id_b — сбрасываем
-      const fix = (w.data.template_id_b === id) ? { template_id_b: null } : {};
-      render('campaign_wizard', { ...w, data: { ...w.data, template_id: id, ...fix } });
-      break;
-    }
-    case 'cw-pick-template-b': {
-      const id = parseInt(el.dataset.id, 10);
-      const w = screenState.campaign_wizard;
-      render('campaign_wizard', { ...w, data: { ...w.data, template_id_b: id } });
-      break;
-    }
     case 'cw-toggle-acc': {
       const id = parseInt(el.dataset.id, 10);
       const w = screenState.campaign_wizard;
@@ -3415,8 +3355,7 @@ async function handleAction(action, el, e) {
         data = { ...data, name: nm || data.name };
         if (!data.list_id) { toast('Выберите список лидов'); return; }
       }
-      if (from === 2 && !data.template_id) { toast('Выберите шаблон'); return; }
-      if (from === 3) {
+      if (from === 2) {
         // Собираем тексты follow-up'ов
         const fus = [];
         for (let i = 1; i <= 5; i++) {
@@ -3425,15 +3364,15 @@ async function handleAction(action, el, e) {
         }
         data = { ...data, followups: fus };
       }
-      if (from === 4 && !(data.account_ids || []).length) { toast('Выберите хотя бы один аккаунт'); return; }
+      if (from === 3 && !(data.account_ids || []).length) { toast('Выберите хотя бы один аккаунт'); return; }
       render('campaign_wizard', { ...w, step: from + 1, data });
       break;
     }
     case 'cw-back': {
       const from = parseInt(el.dataset.from, 10);
-      // Сохраняем follow-up'ы если уходим с шага 3 назад тоже
+      // Сохраняем follow-up'ы если уходим с шага 2 назад тоже
       let data = screenState.campaign_wizard.data;
-      if (from === 3) {
+      if (from === 2) {
         const fus = [];
         for (let i = 1; i <= 5; i++) {
           const v = document.querySelector(`[data-fu-step="${i}"]`)?.value?.trim() || '';
@@ -3451,8 +3390,8 @@ async function handleAction(action, el, e) {
       try {
         const c = await API.campaigns.create({
           name: w.data.name, list_id: w.data.list_id,
-          template_id: w.data.template_id,
-          template_id_b: (w.data.ab_mode && w.data.template_id_b) ? w.data.template_id_b : null,
+          template_id: null,             // sender берёт lead.first_message напрямую
+          template_id_b: null,
           account_ids: w.data.account_ids,
           type: w.data.type || 'one_shot',
           filter_config: w.data.filter_config || null,
@@ -3496,12 +3435,12 @@ async function handleAction(action, el, e) {
       const target = ME.username ? ('@' + ME.username) : (ME.id ? String(ME.id) : '');
       if (!target) { toast('Не нашёл, кому слать тест: нет ни username ни tg_id у тебя.'); return; }
       const accs = w.accounts.filter(a => (w.data.account_ids || []).includes(a.id));
-      if (!accs.length) { toast('Сначала выберите акк на шаге 4'); return; }
+      if (!accs.length) { toast('Сначала выберите акк на шаге 3'); return; }
       const activeAcc = accs.find(a => a.status === 'active') || accs[0];
       if (activeAcc.status !== 'active') { toast(`Акк ${activeAcc.phone} не active (${activeAcc.status}). Тест отправить нельзя.`); return; }
       try {
         const r = await API.campaigns.testSend({
-          template_id: w.data.template_id,
+          list_id:     w.data.list_id,
           account_id:  activeAcc.id,
           target,
         });
