@@ -2514,6 +2514,7 @@ async function refreshBadges() {
       let count = 0;
       if (screen === 'inbox')    count = b.inbox_unread;
       if (screen === 'outreach') count = b.outreach_live;
+      // Guru / dashboard / more — без бейджей, всегда чистим
       let badge = t.querySelector('.tab-badge');
       if (count > 0) {
         if (!badge) {
