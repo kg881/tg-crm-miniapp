@@ -775,14 +775,14 @@ const screens = {
             <div style="font-size:13px;color:var(--text-muted)">Статус</div>
             <span class="campaign-status ${c.status}">${c.status}</span>
           </div>
-          <div style="display:flex;gap:6px;margin-top:10px">
+          <div class="camp-actions" style="margin-top:10px">
             ${c.status === 'live' ?
-              `<button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="pause">⏸ Пауза</button>` :
-              `<button class="btn" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="start">▶ Старт</button>`
+              `<button class="btn secondary camp-act" data-action="campaign-control" data-id="${c.id}" data-act="pause"><span data-pix="pause"></span><span class="camp-act-lbl">Пауза</span></button>` :
+              `<button class="btn camp-act" data-action="campaign-control" data-id="${c.id}" data-act="start"><span data-pix="play"></span><span class="camp-act-lbl">Старт</span></button>`
             }
-            <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop">⏹ Стоп</button>
+            <button class="btn secondary camp-act" data-action="campaign-control" data-id="${c.id}" data-act="stop" style="color:#ef4444"><span data-pix="stop"></span><span class="camp-act-lbl">Стоп</span></button>
           </div>
-          <button class="btn secondary full" style="margin-top:8px;background:#fee2e2;color:#991b1b;border-color:#fecaca" data-action="campaign-delete" data-id="${c.id}" data-name="${escape(c.name)}">🗑 Удалить кампанию</button>
+          <button class="btn secondary full camp-act camp-act-wide" style="margin-top:8px;background:#fee2e2;color:#991b1b;border-color:#fecaca" data-action="campaign-delete" data-id="${c.id}" data-name="${escape(c.name)}"><span data-pix="trash"></span><span class="camp-act-lbl">Удалить кампанию</span></button>
         </div>
 
         <div class="stage-strip">
@@ -795,7 +795,7 @@ const screens = {
 
         ${filtered.length === 0 ? '<div class="empty"><div class="empty-title">Нет записей</div></div>' :
           filtered.slice(0, 100).map(i => `
-            <div class="card" style="padding:10px 12px">
+            <div class="card" style="padding:10px 12px;cursor:pointer" data-action="cd-edit-lead" data-lead-id="${i.lead_id}" title="Открыть карточку лида и поправить первое сообщение">
               <div class="card-row">
                 <div style="flex:1;min-width:0">
                   <div style="font-weight:600;font-size:14px">${escape(i.full_name || i.company || i.username || '?')}</div>
@@ -963,15 +963,15 @@ const screens = {
               <span>Ответили: <b>${c.replied}</b></span>
               <span>Сбоев: <b>${c.failed}</b></span>
             </div>
-            <div style="display:flex;gap:6px;margin-top:10px">
+            <div class="camp-actions">
               ${c.status === 'live' ?
-                `<button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="pause">⏸ Пауза</button>` :
-                `<button class="btn" style="flex:1;padding:8px" data-action="campaign-control" data-id="${c.id}" data-act="start">▶ Старт</button>`
+                `<button class="btn secondary camp-act" data-action="campaign-control" data-id="${c.id}" data-act="pause" title="Пауза"><span data-pix="pause"></span><span class="camp-act-lbl">Пауза</span></button>` :
+                `<button class="btn camp-act" data-action="campaign-control" data-id="${c.id}" data-act="start" title="Старт"><span data-pix="play"></span><span class="camp-act-lbl">Старт</span></button>`
               }
-              <button class="btn secondary" style="flex:1;padding:8px" data-action="open-campaign" data-id="${c.id}">📊</button>
-              <button class="btn secondary" style="flex:1;padding:8px" data-action="campaign-clone" data-id="${c.id}" title="Клонировать">🔁</button>
-              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-control" data-id="${c.id}" data-act="stop" title="Стоп">⏹</button>
-              <button class="btn secondary" style="flex:1;padding:8px;color:#ef4444" data-action="campaign-delete" data-id="${c.id}" data-name="${escape(c.name)}" title="Удалить">🗑</button>
+              <button class="btn secondary camp-act" data-action="open-campaign" data-id="${c.id}" title="Аналитика"><span data-pix="analytics"></span></button>
+              <button class="btn secondary camp-act" data-action="campaign-clone" data-id="${c.id}" title="Клонировать"><span data-pix="refresh"></span></button>
+              <button class="btn secondary camp-act" data-action="campaign-control" data-id="${c.id}" data-act="stop" title="Стоп"><span data-pix="stop"></span></button>
+              <button class="btn secondary camp-act" data-action="campaign-delete" data-id="${c.id}" data-name="${escape(c.name)}" title="Удалить"><span data-pix="trash"></span></button>
             </div>
           </div>`;
         }).join('')}
@@ -3087,7 +3087,25 @@ async function handleAction(action, el, e) {
         else    await API.lists.addLead(screenState.lead_edit.return_list_id, data);
         toast('Сохранено');
         const st = screenState.lead_edit;
-        openList(st.return_list_id, st.return_list_name);
+        if (st.return_to_campaign) openCampaign(st.return_to_campaign);
+        else                       openList(st.return_list_id, st.return_list_name);
+      } catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'cd-edit-lead': {
+      const leadId = parseInt(el.dataset.leadId, 10);
+      const camp = screenState.campaign_detail?.campaign;
+      if (!camp) break;
+      try {
+        const [leads, templates] = await Promise.all([
+          API.lists.leads(camp.list_id),
+          API.templates.list().catch(() => []),
+        ]);
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead) { toast('Лид не найден в исходном списке'); break; }
+        render('lead_edit', { lead, templates,
+          return_list_id: camp.list_id, return_list_name: '',
+          return_to_campaign: camp.id });
       } catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
     }

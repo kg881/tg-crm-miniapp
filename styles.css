@@ -290,6 +290,29 @@ main {
 .stage-chip.active { background: var(--ink); color: var(--card); }
 .stage-strip { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
 
+/* ============================ CAMPAIGN ACTIONS ============================ */
+/* Ряд квадратных pix-кнопок (Старт / аналитика / клон / стоп / удалить) */
+.camp-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+  align-items: stretch;
+}
+.camp-act {
+  flex: 0 0 auto;
+  min-width: 44px; height: 44px;
+  padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--font-h); font-weight: 700; font-size: 13px;
+}
+.camp-act > [data-pix] {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: inherit;
+}
+.camp-act > [data-pix] svg { width: 16px; height: 16px; fill: currentColor; }
+.camp-act-lbl { font-family: var(--font-h); font-weight: 700; letter-spacing: 0.3px; }
+.camp-act.btn { flex: 1 1 0; }      /* первый (Старт/Пауза) растягивается */
+.camp-act-wide { width: 100%; justify-content: center; }
+
 /* Переключатель языка лида (RU/EN) */
 .lang-chip {
   font-family: var(--font-h); font-weight: 700;
