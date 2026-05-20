@@ -1462,7 +1462,6 @@ const screens = {
         ` : ''}
         <div class="conv-input">
           <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Прикрепить файл" data-pix="plus"></button>
-          <button class="icon-btn" data-action="ai-suggest" data-id="${st.conv_id}" title="AI-подсказка / сгенерить ответ" data-pix="edit" style="color:var(--plum)"></button>
           <input type="file" id="attach-input" style="display:none"
                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt">
           <input id="reply-input" type="text" placeholder="Сообщение">
@@ -2033,14 +2032,14 @@ const screens = {
         <textarea class="guru-draft" id="guru-draft-${a.id}" rows="3" ${a.status !== 'pending' ? 'disabled' : ''}>${escape(a.draft_text || '')}</textarea>
         ${a.status === 'pending' ? `
           <div class="guru-actions">
-            <button class="btn primary" onclick="guruApprove(${a.id})" title="Отправить черновик от твоего имени лиду">✓ Approve & Send</button>
-            <button class="btn" onclick="guruEdit(${a.id})" title="Сохранить правки текста (без отправки)">Сохранить правки</button>
-            <button class="btn ghost" onclick="guruReject(${a.id})" title="Отклонить черновик — не отправлять">Отклонить</button>
+            <button class="btn primary" data-action="guru-approve" data-id="${a.id}" title="Отправить черновик от твоего имени лиду">✓ Approve & Send</button>
+            <button class="btn" data-action="guru-edit" data-id="${a.id}" title="Сохранить правки текста (без отправки)">Сохранить правки</button>
+            <button class="btn ghost" data-action="guru-reject" data-id="${a.id}" title="Отклонить черновик — не отправлять">Отклонить</button>
           </div>` : ''}
         ${a.status === 'failed' ? `
           <div class="guru-actions">
-            <button class="btn primary" onclick="guruApprove(${a.id})" title="Сбросить failed → попробовать отправить ещё раз">↻ Повторить</button>
-            <button class="btn ghost" onclick="guruReject(${a.id})" title="Отметить как отклонённый">Отклонить</button>
+            <button class="btn primary" data-action="guru-approve" data-id="${a.id}" title="Сбросить failed → попробовать отправить ещё раз">↻ Повторить</button>
+            <button class="btn ghost" data-action="guru-reject" data-id="${a.id}" title="Отметить как отклонённый">Отклонить</button>
           </div>` : ''}
         ${a.error ? `<div class="guru-card-error">⚠️ ${escape(a.error)}</div>` : ''}
       </div>`;
@@ -2079,9 +2078,40 @@ const screens = {
       </div>
       <div class="guru-input-bar">
         <textarea id="guru-input" rows="2" placeholder="Задача для Guru…"></textarea>
-        <button class="btn primary" onclick="guruSend()" title="Отправить задачу Guru — он сгенерит черновик"><span data-pix="send" style="display:inline-block;width:18px;height:18px"></span></button>
+        <button class="btn primary" data-action="guru-send" title="Отправить задачу Guru — он сгенерит черновик"><span data-pix="send" style="display:inline-block;width:18px;height:18px"></span></button>
       </div>
     </div>`;
+  },
+
+  // ---------- BRAIN GURU (hub: Sales Clone / KB / Assets / Templates) ----------
+  brain: (st) => {
+    const s = st?.stats || {sc: 0, kb: 0, as: 0, tpl: 0};
+    const items = [
+      { action: 'goto-sales-clone', icon: 'ninja',  title: 'Sales Clone',  sub: `${s.sc} реплик — стиль и тон Кости`, color: 'pix-red' },
+      { action: 'goto-kb',          icon: 'brain',  title: 'База знаний',  sub: `${s.kb} ответов на вопросы / возражения`, color: 'pix-plum' },
+      { action: 'goto-assets',      icon: 'paper',  title: 'Файлы',         sub: `${s.as} видео/фото/PDF — Guru приатачит`, color: 'pix-gold' },
+      { action: 'goto-templates',   icon: 'spark',  title: 'Шаблоны кампаний', sub: `${s.tpl} готовых текстов для outreach`, color: 'pix-sky' },
+    ];
+    return `
+      <div class="screen">
+        <div class="head-row"><h2>🧠 Мозг Guru</h2></div>
+        <div class="card" style="background:var(--paper)">
+          <div class="muted small" style="line-height:1.5">
+            Всё что Guru использует чтобы писать как ты:<br>
+            • <b>Sales Clone</b> — твои реплики как few-shot для стиля<br>
+            • <b>База знаний</b> — Q&A для типичных вопросов лидов<br>
+            • <b>Файлы</b> — видео-демо, прайс-PDF — Guru сам выберет когда приатачить<br>
+            • <b>Шаблоны</b> — готовые тексты для рассылок (не для Guru-ответов)
+          </div>
+        </div>
+        ${items.map(i => `
+          <div class="list-item" data-action="${i.action}">
+            <div class="list-ico ${i.color}" data-pix="${i.icon}"></div>
+            <div class="list-text"><div class="list-title">${i.title}</div><div class="list-sub">${i.sub}</div></div>
+            <div class="list-arrow">›</div>
+          </div>
+        `).join('')}
+      </div>`;
   },
 
   // ---------- SALES CLONE ----------
@@ -2308,15 +2338,9 @@ const screens = {
         <div class="list-text"><div class="list-title">Тарифы</div><div class="list-sub">BUSHI · RONIN · SENSEI</div></div>
         <div class="list-arrow">›</div>
       </div>
-      <div class="section-title">AI</div>
-      <div class="list-item" data-action="goto-templates">
-        <div class="list-ico pix-plum" data-pix="spark"></div><div class="list-text"><div class="list-title">AI-ассистент</div><div class="list-sub">Шаблоны и генератор сообщений</div></div><div class="list-arrow">›</div>
-      </div>
-      <div class="list-item" data-action="goto-sales-clone">
-        <div class="list-ico pix-red" data-pix="ninja"></div><div class="list-text"><div class="list-title">Sales Clone</div><div class="list-sub">Обучи Guru своему стилю продаж</div></div><div class="list-arrow">›</div>
-      </div>
-      <div class="list-item" data-action="goto-assets">
-        <div class="list-ico pix-gold" data-pix="paper"></div><div class="list-text"><div class="list-title">Файлы Guru</div><div class="list-sub">MP4 / фото / PDF до 2 GB — Guru приатачит лиду</div></div><div class="list-arrow">›</div>
+      <div class="section-title">Мозг Guru</div>
+      <div class="list-item" data-action="goto-brain">
+        <div class="list-ico pix-plum" data-pix="spark"></div><div class="list-text"><div class="list-title">Мозг Guru</div><div class="list-sub">Стиль · База знаний · Файлы · Шаблоны</div></div><div class="list-arrow">›</div>
       </div>
       <div class="section-title">Сообщество</div>
       <div class="list-item" data-action="goto-idea-submit">
@@ -2673,6 +2697,24 @@ async function loadPricing() {
     render('pricing', { me: null });
     toast(`Не удалось загрузить тарифы: ${e.message}`);
   }
+}
+
+async function loadBrain() {
+  render('brain', { stats: { sc: '…', kb: '…', as: '…', tpl: '…' } });
+  try {
+    const [scStats, kb, assets, tpls] = await Promise.all([
+      API.salesClone.stats().catch(()=>({total:0})),
+      API.kb.list().catch(()=>[]),
+      API.assets.list().catch(()=>[]),
+      API.templates.list().catch(()=>[]),
+    ]);
+    render('brain', { stats: {
+      sc: scStats.total || 0,
+      kb: (kb || []).length,
+      as: (assets || []).length,
+      tpl: (tpls || []).length,
+    }});
+  } catch (e) { toast(`Ошибка: ${e.message}`); }
 }
 
 async function loadAssets(silent=false) {
@@ -3382,26 +3424,6 @@ async function handleAction(action, el, e) {
       break;
     }
     case 'open-campaign': openCampaign(parseInt(el.dataset.id, 10)); break;
-    case 'ai-suggest': {
-      const cid = parseInt(el.dataset.id, 10);
-      const inp = document.getElementById('reply-input');
-      inp.value = 'Думаю…';
-      inp.disabled = true;
-      try {
-        const r = await API.inbox.suggest(cid);
-        inp.value = r.suggestion || '';
-      } catch (e) {
-        inp.value = '';
-        if (String(e.message).includes('402') || String(e.message).includes('ai_requires')) {
-          toast('AI-подсказки в тарифах RONIN и SENSEI');
-          loadPricing();
-        } else {
-          toast(`AI ошибка: ${e.message}`);
-        }
-      }
-      finally { inp.disabled = false; inp.focus(); }
-      break;
-    }
 
     // Parser / Search (real backend)
     case 'run-parser-real': {
@@ -3450,6 +3472,13 @@ async function handleAction(action, el, e) {
     case 'goto-pricing':   loadPricing(); break;
     case 'goto-sales-clone': loadSalesClone(); break;
     case 'goto-assets':      loadAssets(); break;
+    case 'goto-brain':       loadBrain(); break;
+
+    // Guru actions через data-action (раньше были inline onclick)
+    case 'guru-send':    guruSend(); break;
+    case 'guru-approve': guruApprove(parseInt(el.dataset.id, 10)); break;
+    case 'guru-edit':    guruEdit(parseInt(el.dataset.id, 10)); break;
+    case 'guru-reject':  guruReject(parseInt(el.dataset.id, 10)); break;
 
     // Assets (файлы Guru) — as-file-pick обрабатывается в change listener
     case 'open-bot-for-asset': {
