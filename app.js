@@ -66,6 +66,7 @@ const PIX = {
   file:        '<path d="M3 1h7l3 3v11H3z M10 1v3h3" fill-rule="evenodd"/>',
   folder:      '<path d="M2 4h5l1 1h6v9H2z"/>',
   info:        '<path d="M7 2h2v2H7zM6 5h3v6h1v2H5v-2h1V7H6z"/>',
+  warning:     '<path d="M8 1l7 13H1zM7 6h2v4H7zm0 5h2v2H7z"/>',
   support:     '<path d="M5 4h2c0-1 1-2 2-2s2 1 2 2-2 2-2 4H7c0-2 2-3 2-3 0-1-1-1-1-1s-1 0-1 1zm2 7h2v2H7z"/>',
   snooze:      '<path d="M3 4h10v2l-7 5h7v3H3v-2l7-5H3z"/>',
   bell:        '<path d="M6 2h4v1l1 1v6l1 2H4l1-2V4l1-1zm1 12h2v1H7z"/>',
@@ -230,11 +231,54 @@ function _renderInboxSearch(value) {
 window.__ldSearch = _renderListDetailSearch;
 window.__ibSearch = _renderInboxSearch;
 const haptic = () => tg?.HapticFeedback?.impactOccurred?.('light');
-const toast = (msg) => {
-  // Не даём упасть async handler'ам: в TG 6.0 showAlert throws WebAppMethodUnsupported.
-  try { if (tg?.showAlert) { tg.showAlert(msg); return; } } catch (e) {}
-  try { alert(msg); } catch (e) { console.log('[toast]', msg); }
+// Кастомный in-app toast в нашем pixel-дизайне (snackbar внизу экрана).
+// Парсим первый символ ✅ / ❌ / ⚠ / 🔥 → выбираем pix-иконку и цвет.
+const _TOAST_ICONS = {
+  '✅': { pix: 'check',  cls: 'ok'   },
+  '✓':  { pix: 'check',  cls: 'ok'   },
+  '☀️': { pix: 'check',  cls: 'ok'   },
+  '✦':  { pix: 'check',  cls: 'ok'   },
+  '🔥': { pix: 'warning',cls: 'warn' },
+  '⚠':  { pix: 'warning',cls: 'warn' },
+  '⚠️': { pix: 'warning',cls: 'warn' },
+  '❌': { pix: 'close',  cls: 'err'  },
+  '🚫': { pix: 'close',  cls: 'err'  },
+  'ℹ':  { pix: 'info',   cls: 'info' },
+  '🧪': { pix: 'info',   cls: 'info' },
+  '🗑': { pix: 'trash',  cls: 'ok'   },
 };
+function _detectToastIcon(msg) {
+  const s = (msg || '').trim();
+  for (const k of Object.keys(_TOAST_ICONS)) {
+    if (s.startsWith(k)) return { ..._TOAST_ICONS[k], stripped: s.slice(k.length).trim() };
+  }
+  if (/^ошибка|^не\b/i.test(s)) return { pix: 'close', cls: 'err', stripped: s };
+  return { pix: 'check', cls: 'ok', stripped: s };
+}
+function toast(msg) {
+  const text = String(msg ?? '');
+  try {
+    const { pix, cls, stripped } = _detectToastIcon(text);
+    const root = document.getElementById('toast-root') || (() => {
+      const r = document.createElement('div'); r.id = 'toast-root'; document.body.appendChild(r); return r;
+    })();
+    const el = document.createElement('div');
+    el.className = `toast-snack ${cls}`;
+    el.innerHTML = `
+      <span class="toast-ico" data-pix="${pix}"></span>
+      <div class="toast-body">${escape(stripped).replace(/\n/g, '<br>')}</div>
+    `;
+    root.appendChild(el);
+    _hydratePixIcons(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 250);
+    }, text.length > 80 ? 4500 : 2500);
+  } catch (e) {
+    console.log('[toast]', text);
+  }
+}
 const confirm_ = (msg) => new Promise(r => tg?.showConfirm?.(msg, r) || r(window.confirm(msg)));
 const prompt_ = (msg, def='') => window.prompt(msg, def);
 const openLink = (url) => tg?.openTelegramLink ? tg.openTelegramLink(url.replace('https://t.me/', 'https://t.me/')) : window.open(url, '_blank');

@@ -882,3 +882,39 @@ textarea.pixel-input { font-family: var(--font-ui); }
 @media (prefers-color-scheme: dark) {
   /* Pixel UI остаётся светлым/тёплым — теневая тема выглядит криво в этой эстетике */
 }
+
+/* ============================ TOAST / SNACKBAR ============================ */
+/* Кастомный uведомитель в pixel-дизайне. Заменяет native tg.showAlert. */
+#toast-root {
+  position: fixed; left: 0; right: 0; bottom: calc(72px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px;
+  pointer-events: none; z-index: 9999; padding: 0 12px;
+}
+.toast-snack {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 460px; min-width: 220px; width: max-content;
+  padding: 10px 14px;
+  background: var(--card); color: var(--ink);
+  border: 2px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
+  font-family: var(--font-h); font-weight: 700; font-size: 13px; line-height: 1.35;
+  letter-spacing: 0.2px;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events: auto;
+}
+.toast-snack.show { opacity: 1; transform: translateY(0); }
+.toast-snack .toast-ico {
+  flex: 0 0 24px; width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--ink); background: var(--mint);
+}
+.toast-snack .toast-ico svg { width: 14px; height: 14px; fill: var(--ink); }
+.toast-snack .toast-body { flex: 1 1 auto; word-break: break-word; }
+.toast-snack.ok   .toast-ico { background: var(--mint); }
+.toast-snack.warn .toast-ico { background: var(--gold); }
+.toast-snack.err  .toast-ico { background: var(--red);  }
+.toast-snack.err  .toast-ico svg { fill: var(--card); }
+.toast-snack.info .toast-ico { background: var(--paper); }
+.toast-snack.err  { border-color: var(--red); box-shadow: 5px 5px 0 var(--red); }
+.toast-snack.warn { box-shadow: 5px 5px 0 var(--gold); }
