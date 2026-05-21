@@ -685,9 +685,9 @@ const screens = {
         ` : accs.map(a => {
           const st = stats[a.id] || {};
           const isReauth = a.status === 'needs_reauth';
-          const dotColor = a.status === 'active' ? 'green' : isReauth ? 'orange' : 'orange';
-          const badgeClass = a.status === 'active' ? 'cold' : isReauth ? 'hot' : 'warm';
-          const badgeText  = isReauth ? '⚠ переавтор' : a.status;
+          const isOn = a.status === 'active';
+          const dotColor = isOn ? 'green' : 'orange';
+          const subBadge = !isOn ? (isReauth ? '⚠ нужен реавтор' : a.status) : '';
           return `
           <div class="card" data-action="open-account" data-id="${a.id}" ${isReauth?'style="border-left:3px solid #ef4444"':''}>
             <div class="card-row">
@@ -698,7 +698,13 @@ const screens = {
                   <div class="lead-status">${escape(a.phone)}${a.proxy ? ' · proxy ✓' : ''}</div>
                 </div>
               </div>
-              <span class="lead-score ${badgeClass}">${badgeText}</span>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                <div data-action="acc-toggle" data-id="${a.id}" data-on="${isOn?1:0}" title="${isOn?'Выключить (на паузу)':'Включить (active)'}"
+                     style="width:46px;height:26px;border-radius:13px;background:${isOn?'#16a34a':'#9ca3af'};position:relative;cursor:pointer;transition:background .15s">
+                  <div style="position:absolute;top:3px;left:${isOn?'23px':'3px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>
+                </div>
+                ${subBadge ? `<span style="font-size:10px;color:#c54;font-family:var(--font-mono,monospace)">${escape(subBadge)}</span>` : ''}
+              </div>
             </div>
             <div style="display:flex;gap:14px;font-size:12px;color:var(--text-muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
               <span>Сегодня: <b style="color:var(--text)">${a.sent_today}/${a.daily_limit}</b></span>
@@ -2994,6 +3000,23 @@ async function handleAction(action, el, e) {
       const account = (screenState.accounts?.accounts || []).find(a => a.id === id);
       const stat = (screenState.accounts?.stats || {})[id] || {};
       if (account) render('account_detail', { account, stat });
+      break;
+    }
+    case 'acc-toggle': {
+      const id = parseInt(el.dataset.id, 10);
+      const isOn = el.dataset.on === '1';
+      const next = isOn ? 'paused' : 'active';
+      try {
+        await API.accounts.update(id, { status: next });
+        const accs = screenState.accounts?.accounts || [];
+        const stats = screenState.accounts?.stats || {};
+        const idx = accs.findIndex(a => a.id === id);
+        if (idx >= 0) accs[idx] = { ...accs[idx], status: next };
+        render('accounts', { accounts: accs, stats });
+        toast(next === 'active' ? 'Аккаунт включён' : 'Аккаунт на паузе');
+      } catch (e) {
+        toast('Ошибка: ' + (e.message || e));
+      }
       break;
     }
     case 'account-save': {
