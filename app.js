@@ -718,31 +718,24 @@ const screens = {
           </div>
         </div>
 
-        <div class="section-title">✨ Auto-reply (AI отвечает за вас)</div>
+        <div class="section-title">⏱ Пауза между отправками</div>
         <div class="card">
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input id="ad-autoreply" type="checkbox" ${a.auto_reply_enabled?'checked':''} style="width:20px;height:20px">
-            <div style="flex:1">
-              <div style="font-weight:500">Включить авто-ответы</div>
-              <div style="font-size:12px;color:var(--text-muted)">Когда лид пишет в этот акк, Claude через 8-25 секунд (как живой человек) сгенерит и отправит ответ.</div>
-            </div>
-          </label>
-          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Промпт для AI (правила ответа)</label>
-          <textarea id="ad-autoprompt" rows="6" placeholder="Ты sales BitOK..."
-                    style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:inherit;resize:vertical">${escape(a.auto_reply_prompt || 'Ты sales BitOK (AML/KYT для крипто-бизнесов). Отвечай коротко, на ты, по делу. Если спрашивают про цену — предложи созвон 15 мин. Если возражения — отрабатывай мягко. Без эмодзи и воды.')}</textarea>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">
+            Случайная задержка перед отправкой каждого следующего сообщения с этого аккаунта. Защита от спам-фильтра: Telegram видит «живой» паттерн, а не пачку в одну минуту.
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <label style="font-size:11px;color:var(--text-muted)">Макс ответов в одном треде</label>
-              <input id="ad-bot-max" type="number" min="1" max="50" value="${a.bot_max_per_thread || 5}"
+              <label style="font-size:11px;color:var(--text-muted)">Мин. пауза (сек)</label>
+              <input id="ad-pause-min" type="number" min="1" max="3600" value="${a.send_pause_min || 30}"
                      style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;margin-top:2px">
             </div>
             <div>
-              <label style="font-size:11px;color:var(--text-muted)">Лимит ответов в час (с этого акка)</label>
-              <input id="ad-bot-rate" type="number" min="1" max="200" value="${a.bot_rate_limit_hour || 10}"
+              <label style="font-size:11px;color:var(--text-muted)">Макс. пауза (сек)</label>
+              <input id="ad-pause-max" type="number" min="1" max="3600" value="${a.send_pause_max || 90}"
                      style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;margin-top:2px">
             </div>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">⚙️ После лимита в треде — бот молчит, эскалация в @crm_outreach_bot. Stop-words (договор/контракт/legal) → пауза мгновенно. Negative/objection → пауза. Booking-фразы (давай созвон/демо) → шлёт твою Calendly без LLM.</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Безопасно: 30–90 сек. Агрессивно (риск-зона): 5–30 сек. Совсем безопасно: 60–180 сек.</div>
         </div>
         ${a.status === 'needs_reauth' ? `
           <div class="card" style="background:#fee2e2;color:#991b1b;font-size:13px;margin-bottom:8px">
@@ -2965,12 +2958,12 @@ async function handleAction(action, el, e) {
         daily_limit:        parseInt(document.getElementById('ad-limit').value, 10),
         proxy:              document.getElementById('ad-proxy').value.trim() || '',
         warmup_enabled:     document.getElementById('ad-warmup')?.checked || false,
-        auto_reply_enabled: document.getElementById('ad-autoreply')?.checked || false,
-        auto_reply_prompt:  document.getElementById('ad-autoprompt')?.value || '',
         schedule:           collectSchedule(),
-        bot_max_per_thread: parseInt(document.getElementById('ad-bot-max')?.value || '5', 10),
-        bot_rate_limit_hour: parseInt(document.getElementById('ad-bot-rate')?.value || '10', 10),
+        send_pause_min:     parseInt(document.getElementById('ad-pause-min')?.value || '30', 10),
+        send_pause_max:     parseInt(document.getElementById('ad-pause-max')?.value || '90', 10),
       };
+      if (data.send_pause_min < 1) data.send_pause_min = 1;
+      if (data.send_pause_max < data.send_pause_min) data.send_pause_max = data.send_pause_min;
       try { await API.accounts.update(id, data); toast('✅ Сохранено'); loadAccounts(); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
       break;
