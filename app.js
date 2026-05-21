@@ -1543,7 +1543,7 @@ const screens = {
               <div class="conv-row ${out ? 'out' : 'in'}">
                 <div class="conv-bubble ${out ? 'out' : 'in'} ${media ? 'media' : ''}">
                   ${media ? `<div class="conv-media-ico">${escape(m.text)}</div>` : `<div class="conv-text">${escape(m.text)}</div>`}
-                  <div class="conv-time">${fmtTime(m.sent_at)}${out ? ' ✓' : ''}</div>
+                  <div class="conv-time">${fmtTime(m.sent_at)}${out ? (m.read_at ? ' <span class="conv-ticks read" title="Прочитано">✓✓</span>' : ' <span class="conv-ticks" title="Доставлено">✓</span>') : ''}</div>
                 </div>
               </div>`;
           }).join('')}

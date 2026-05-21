@@ -883,6 +883,10 @@ textarea.pixel-input { font-family: var(--font-ui); }
   /* Pixel UI остаётся светлым/тёплым — теневая тема выглядит криво в этой эстетике */
 }
 
+/* Галочки доставки/прочтения в исходящих пузырях */
+.conv-ticks { font-weight: 700; letter-spacing: -1px; opacity: .65; margin-left: 4px; }
+.conv-ticks.read { color: var(--accent); opacity: 1; }
+
 /* ============================ TOAST / SNACKBAR ============================ */
 /* Кастомный uведомитель в pixel-дизайне. Заменяет native tg.showAlert. */
 #toast-root {
