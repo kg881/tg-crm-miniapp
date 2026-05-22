@@ -746,9 +746,16 @@ const screens = {
           <label style="font-size:12px;color:var(--text-muted)">Дневной лимит сообщений</label>
           <input id="ad-limit" type="number" min="1" max="200" value="${a.daily_limit}"
                  style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Прокси</label>
-          <input id="ad-proxy" placeholder="socks5://..." value="${escape(a.proxy || '')}"
-                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <span>Прокси (SOCKS5)</span>
+            ${a.proxy ? '<span style="color:#16a34a;font-size:11px;font-weight:600">✓ активен</span>' : '<span style="color:var(--text-muted);font-size:11px">— не задан</span>'}
+          </label>
+          <input id="ad-proxy" placeholder="host:port:user:pass" value="${escape(a.proxy || '')}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;font-family:var(--font-mono,monospace)">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5">
+            Формат: <code style="background:var(--bg-soft);padding:1px 4px;border-radius:3px">186.243.180.125:64625:wMVgTVzT:Fq29ctzN</code><br>
+            или полный URL <code style="background:var(--bg-soft);padding:1px 4px;border-radius:3px">socks5://user:pass@host:port</code>
+          </div>
         </div>
 
         <div class="section-title">⏰ Расписание отправки</div>
@@ -865,7 +872,7 @@ const screens = {
           <input id="f-phone" type="tel" placeholder="+33 7 73 19 47 71" value="${escape(st?.phone || '')}"
                  style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:16px;margin-top:6px">
           <label style="font-size:13px;color:var(--text-muted);margin-top:14px;display:block">Прокси (необязательно)</label>
-          <input id="f-proxy" type="text" placeholder="socks5://user:pass@host:port" value="${escape(st?.proxy || '')}"
+          <input id="f-proxy" type="text" placeholder="host:port:user:pass" value="${escape(st?.proxy || '')}"
                  style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:14px;margin-top:6px">
         </div>
         <button class="btn full" data-action="account-send-code" style="margin-top:8px">Отправить код</button>
