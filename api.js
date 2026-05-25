@@ -1,5 +1,5 @@
 // API клиент для бэкенда BitOK CRM
-const DEFAULT_API_BASE = 'https://03ffbce57606a4.lhr.life';
+const DEFAULT_API_BASE = 'https://bitok-crm.serveousercontent.com';
 
 // Чистим старый сохранённый URL — теперь всегда берём актуальный из этого файла
 try { localStorage.removeItem('api_base'); } catch {}
