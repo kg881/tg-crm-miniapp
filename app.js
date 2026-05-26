@@ -2694,12 +2694,28 @@ async function guruSend() {
 }
 
 async function guruApprove(id) {
-  try { await API.guru.approve(id); loadGuru(true); }
+  try { await API.guru.approve(id); toast('✓ Отправлено'); loadGuru(true); }
   catch (e) {
-    // Чистим '500 send_failed: ' префикс чтобы юзер видел реальную причину
-    const msg = (e.message || '').replace(/^\d+\s+send_failed:\s*/i, '');
-    toast(`Не отправилось: ${msg}`);
-    loadGuru(true);   // перерисовать карточку с новым статусом (failed → можно retry)
+    // Backend мог выполнить отправку, но HTTP-ответ не дошёл (Telethon-таймаут / прокси).
+    // Перепроверяем реальный статус action перед тем как пугать юзера.
+    const httpMsg = (e.message || '').replace(/^\d+\s+send_failed:\s*/i, '');
+    let realStatus = null;
+    try {
+      const all = await API.guru.actions();
+      const a = (all || []).find(x => x.id === id);
+      realStatus = a ? a.status : 'missing';
+    } catch {}
+    if (realStatus === 'executed') {
+      toast('✓ Отправлено (HTTP-ответ потерялся)');
+    } else if (realStatus === 'missing') {
+      toast('✓ Отправлено (action закрыт)');
+    } else if (realStatus === 'failed') {
+      toast(`Не отправилось: ${httpMsg || 'failed'}`);
+    } else {
+      // pending / неизвестно — даём честный «Load failed»
+      toast(`Не отправилось: ${httpMsg}`);
+    }
+    loadGuru(true);
   }
 }
 async function guruReject(id) {
