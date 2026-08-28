@@ -300,26 +300,6 @@ function stopPoll() { if (_poll) { clearInterval(_poll); _poll = null; } }
 function startPoll(fn, ms) { stopPoll(); _poll = setInterval(fn, ms); }
 
 // ===== Mock-данные дашборда =====
-const MOCK = {
-  stats: { leads_today: 36, hot: 6, sent_today: 142, reply_rate: 18 },
-  // Hot leads — ТОЛЬКО лиды на trial (по запросу: исключить paid, показывать trial-стейджы).
-  hot_leads: [
-    { name: 'CryptoGex',     stage: 'Trial Activated', score: 95, color: 'orange' },
-    { name: 'Биржа Масспей', stage: 'Trial Activated', score: 70, color: 'blue' },
-    { name: 'ivendpay.com',  stage: 'Trial Activated', score: 70, color: 'purple' },
-    { name: 'Bitteam',       stage: 'Trial Activated', score: 75, color: 'orange' },
-    { name: 'safexchange.pr',stage: 'Trial Activated', score: 70, color: 'green' },
-  ],
-  pipeline_stages: [
-    { id: 'all', label: 'Все', count: 36 },
-    { id: 'initial', label: 'Initial', count: 8 },
-    { id: 'trial', label: 'Trial', count: 6 },
-    { id: 'testnet', label: 'Testnet', count: 7 },
-    { id: 'objection', label: 'Objection', count: 11 },
-    { id: 'winback', label: 'Winback', count: 4 },
-  ],
-};
-const scoreClass = (n) => n >= 70 ? 'hot' : n >= 40 ? 'warm' : 'cold';
 
 // ===== Schedule editor =====
 const DAY_LABELS = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
@@ -515,6 +495,7 @@ const screens = {
   // ---------- DASHBOARD (live) ----------
   dashboard: (st) => {
     const d = st?.data;
+    if (!d && st?.error) return errorScreen(`Оя ё, ${ME.first_name}`, st.error, 'retry-dashboard');
     if (!d) return `
       <div class="screen">
         <div class="head-row"><h2>Оя ё, ${escape(ME.first_name)}</h2></div>
@@ -588,25 +569,6 @@ const screens = {
   },
 
   // ---------- PIPELINE ----------
-  pipeline: (st) => {
-    const active = st?.stage || 'all';
-    return `
-      <div class="screen">
-        <div class="head-row"><h2>Сделки</h2><button class="add-btn" data-action="goto-lists" title="Перейти к спискам лидов — оттуда выбираешь лида в новую сделку">+</button></div>
-        <div class="stage-strip">
-          ${MOCK.pipeline_stages.map(s => `
-            <div class="stage-chip ${s.id === active ? 'active' : ''}" data-stage="${s.id}">${s.label} · ${s.count}</div>
-          `).join('')}
-        </div>
-        ${MOCK.hot_leads.map(l => `
-          <div class="lead" data-action="open-lead" data-name="${escape(l.name)}">
-            <div class="avatar ${l.color}">${initials(l.name)}</div>
-            <div class="lead-body"><div class="lead-name">${escape(l.name)}</div><div class="lead-status">${escape(l.stage)} · Next touch завтра</div></div>
-            <span class="lead-score ${scoreClass(l.score)}">${l.score}</span>
-          </div>
-        `).join('')}
-      </div>`;
-  },
 
   // ---------- OUTREACH ----------
   outreach: () => `
@@ -945,35 +907,6 @@ const screens = {
   },
 
   // ---------- MONDAY IMPORT ----------
-  monday_import: (st) => {
-    const stages = ['Initial Contact','Trial Activated','Testnet','Objection handling','Winback','Paid','Active Partner'];
-    const selected = st?.selected_stages || ['Trial Activated','Objection handling','Initial Contact'];
-    const status = st?.status || null;
-    return `
-      <div class="screen">
-        <div class="head-row"><h2 style="font-size:18px">Импорт из Monday</h2></div>
-        <div class="card">
-          <label style="font-size:12px;color:var(--text-muted)">ID борда</label>
-          <input id="md-board" value="${escape(st?.board_id || '9027825117')}"
-                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Название нового списка</label>
-          <input id="md-name" value="${escape(st?.list_name || 'Из Monday — ' + new Date().toISOString().slice(0,10))}"
-                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
-          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Какие стейджи импортировать</label>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="md-stages">
-            ${stages.map(s => `
-              <div class="stage-chip ${selected.includes(s)?'active':''}" data-md-stage="${escape(s)}">${escape(s)}</div>
-            `).join('')}
-          </div>
-        </div>
-        <button class="btn full" style="margin-top:8px" data-action="monday-import-go">Импортировать</button>
-        ${status ? `<div class="card" style="margin-top:8px;${status.error?'color:#ef4444':''}">${escape(status.message)}</div>` : ''}
-        <div style="margin-top:16px;font-size:11px;color:var(--text-muted);text-align:center">
-          Импортируются только лиды с TG-username в поле Contact Person.<br>
-          Если ничего не импортируется — проверьте MONDAY_TOKEN в .env бэкенда.
-        </div>
-      </div>`;
-  },
 
   // ---------- CAMPAIGNS LIST ----------
   campaigns: (st) => {
@@ -2219,6 +2152,7 @@ const screens = {
   // ---------- SALES CLONE ----------
   salesClone: (st) => {
     const samples = st?.samples;
+    if (st?.error) return errorScreen('Sales Clone', st.error, 'goto-sales-clone');
     if (samples === undefined) {
       return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю</div></div></div>`;
     }
@@ -2370,6 +2304,7 @@ const screens = {
   // ---------- PRICING ----------
   pricing: (st) => {
     const me = st?.me;
+    if (!me && st?.error) return errorScreen('Тарифы', st.error, 'goto-pricing');
     if (!me) return `<div class="screen"><div class="empty"><div class="empty-ico" data-pix="clock"></div><div class="empty-title">Загружаю</div></div></div>`;
     const tierMeta = {
       free:   { name: 'BUSHI',  sub: 'Старт', color: 'paper', accent: 'var(--ink-3)',
@@ -2464,6 +2399,21 @@ const screens = {
 };
 
 // ===== Render =====
+// Экран не смог загрузиться. Раньше в этом случае рисовался тот же шаблон, что и во время
+// загрузки, — «Загружаю данные» висело вечно, а тост с причиной пропадал через 2.5 секунды.
+function errorScreen(title, msg, retryAction) {
+  return `
+    <div class="screen">
+      <div class="head-row"><h2>${escape(title)}</h2></div>
+      <div class="empty">
+        <div class="empty-ico" data-pix="clock"></div>
+        <div class="empty-title">Не удалось загрузить</div>
+        <div class="muted small" style="margin-top:6px;word-break:break-word">${escape(msg || 'нет связи с сервером')}</div>
+        <button class="btn primary full" style="margin-top:14px" data-action="${escape(retryAction)}">Повторить</button>
+      </div>
+    </div>`;
+}
+
 function render(name, state = {}) {
   const prev = currentScreen;
   if (!_navBack && prev && prev !== name) {
@@ -2477,6 +2427,9 @@ function render(name, state = {}) {
   _navBack = false;
   currentScreen = name;
   screenState[name] = { ...screenState[name], ...state };
+  // имя экрана в data-атрибут — по нему десктопные @media в styles.css решают,
+  // какие экраны раскладывать в две колонки, а какие оставить одной лентой
+  $('#screen-root').dataset.screen = name;
   $('#screen-root').innerHTML = screens[name](screenState[name]);
   _hydratePixIcons($('#screen-root'));
   document.querySelectorAll('.tab').forEach(t => {
@@ -2586,10 +2539,11 @@ async function loadDashboard(silent=false) {
     const h = JSON.stringify([data, tasks?.map(t=>t.id+':'+t.text)]);
     if (silent && h === _dashHash) return;
     _dashHash = h;
+    if (silent && currentScreen !== 'dashboard') return;   // пока летел ответ, юзер ушёл на другой экран
     render('dashboard', { data, tasks });
   } catch (e) {
     if (!silent) {
-      render('dashboard', { data: null, tasks: [] });
+      render('dashboard', { data: null, tasks: [], error: e.message });
       toast(`Не удалось загрузить дашборд: ${e.message}`);
     }
   }
@@ -2693,9 +2647,21 @@ async function guruSend() {
   loadGuru(true);
 }
 
+const _approving = new Set();   // защита от двойного клика: второй тап слал лиду дубль
+
 async function guruApprove(id) {
-  try { await API.guru.approve(id); toast('✓ Отправлено'); loadGuru(true); }
+  if (_approving.has(id)) return;
+  _approving.add(id);
+  const btns = document.querySelectorAll(`[data-action="guru-approve"][data-id="${id}"]`);
+  const label = btns[0]?.textContent;
+  btns.forEach(b => { b.disabled = true; b.textContent = '… отправляю'; });
+  const _done = () => {
+    _approving.delete(id);
+    btns.forEach(b => { b.disabled = false; if (label) b.textContent = label; });
+  };
+  try { await API.guru.approve(id); toast('✓ Отправлено'); _done(); loadGuru(true); return; }
   catch (e) {
+    _done();
     // Backend мог выполнить отправку, но HTTP-ответ не дошёл (Telethon-таймаут / прокси).
     // Перепроверяем реальный статус action перед тем как пугать юзера.
     const httpMsg = (e.message || '').replace(/^\d+\s+send_failed:\s*/i, '');
@@ -2748,6 +2714,7 @@ async function loadInbox(silent=false) {
     if (silent && newHash === _inboxHash) return;
     _inboxHash = newHash;
     const filter = screenState.inbox?.filter || 'all';
+    if (silent && currentScreen !== 'inbox') return;   // пока летел ответ, юзер ушёл
     render('inbox', { conversations, filter });
   } catch (e) {
     if (!silent) {
@@ -2804,8 +2771,11 @@ async function loadSalesClone(silent=false) {
   if (!silent) render('salesClone', { samples: undefined });
   try {
     const samples = await API.salesClone.list();
-    render('salesClone', { samples });
-  } catch (e) { toast(`Ошибка: ${e.message}`); }
+    render('salesClone', { samples, error: null });
+  } catch (e) {
+    render('salesClone', { samples: [], error: e.message });   // иначе экран навсегда в «Загружаю»
+    toast(`Ошибка: ${e.message}`);
+  }
 }
 
 async function loadPricing() {
@@ -2813,7 +2783,7 @@ async function loadPricing() {
     const me = await API.billing.me();
     render('pricing', { me });
   } catch (e) {
-    render('pricing', { me: null });
+    render('pricing', { me: null, error: e.message });
     toast(`Не удалось загрузить тарифы: ${e.message}`);
   }
 }
@@ -2868,7 +2838,6 @@ async function loadAdminIdeas(filter='all') {
 async function handleAction(action, el, e) {
   haptic();
   switch (action) {
-    case 'open-lead':       toast(`Карточка лида: ${el.dataset.name}\n\n(скоро)`); break;
     case 'run-briefing':    {
       try { await API.briefing.run(); toast('☀️ Брифинг отправлен в чат с ботом'); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
@@ -3259,12 +3228,13 @@ async function handleAction(action, el, e) {
       out.innerHTML = '<div class="card">Генерирую…</div>';
       try {
         const r = await API.ai.generate(data);
+        screenState.ai_composer = { ...(screenState.ai_composer || {}), _lastText: r.text };
         out.innerHTML = `
           <div class="card">
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">СГЕНЕРИРОВАНО:</div>
             <div style="white-space:pre-wrap;font-size:14px">${escape(r.text)}</div>
           </div>
-          <button class="btn full" style="margin-top:8px" onclick="navigator.clipboard.writeText(${JSON.stringify(r.text)});window.Telegram?.WebApp?.showAlert?.('Скопировано')">Копировать</button>
+          <button class="btn full" style="margin-top:8px" data-action="ai-copy">Копировать</button>
         `;
       } catch (e) {
         out.innerHTML = `<div class="card" style="color:#ef4444">Ошибка: ${escape(e.message)}<br><br>Проверьте что в .env задан ANTHROPIC_API_KEY</div>`;
@@ -3402,29 +3372,6 @@ async function handleAction(action, el, e) {
         await API.ideas.adminDelete(id);
         loadAdminIdeas(screenState.admin_ideas?.filter || 'all');
       } catch (e) { toast(`Ошибка: ${e.message}`); }
-      break;
-    }
-
-    // Monday import
-    case 'monday-import': render('monday_import', { selected_stages: ['Trial Activated','Objection handling','Initial Contact'] }); break;
-    case 'monday-import-go': {
-      const board_id = parseInt(document.getElementById('md-board').value, 10);
-      const list_name = document.getElementById('md-name').value.trim() || 'Из Monday';
-      const stages = screenState.monday_import?.selected_stages || [];
-      const root = document.querySelector('#md-stages');
-      // Берём активные чипы
-      const active_stages = Array.from(root.querySelectorAll('.stage-chip.active')).map(c => c.dataset.mdStage);
-      try {
-        render('monday_import', { ...screenState.monday_import, status: { message: 'Импортирую…' } });
-        const r = await API.monday.importBoard({ board_id, list_name, stages: active_stages });
-        render('monday_import', {
-          ...screenState.monday_import,
-          status: { message: `✅ Импортировано: ${r.imported}, пропущено без TG-username: ${r.skipped_no_username}` },
-        });
-        setTimeout(() => loadLists(), 1500);
-      } catch (e) {
-        render('monday_import', { ...screenState.monday_import, status: { message: `Ошибка: ${e.message}`, error: true } });
-      }
       break;
     }
 
@@ -3672,6 +3619,8 @@ async function handleAction(action, el, e) {
     case 'goto-stoplist':  loadStoplist(); break;
     case 'goto-profile':   loadProfile(); break;
     case 'goto-pricing':   loadPricing(); break;
+    case 'retry-dashboard': loadDashboard(); break;
+    case 'ai-copy': copyText(screenState.ai_composer?._lastText || ''); break;
     case 'goto-sales-clone': loadSalesClone(); break;
     case 'goto-assets':      loadAssets(); break;
     case 'goto-brain':       loadBrain(); break;
@@ -4090,10 +4039,6 @@ document.addEventListener('click', (e) => {
     }
     if (stage.dataset.inboxFilter !== undefined) {
       render('inbox', { ...screenState.inbox, filter: stage.dataset.inboxFilter });
-      return;
-    }
-    if (stage.dataset.stage !== undefined) {
-      render('pipeline', { stage: stage.dataset.stage });
       return;
     }
   }

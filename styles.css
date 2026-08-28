@@ -922,3 +922,188 @@ textarea.pixel-input { font-family: var(--font-ui); }
 .toast-snack.info .toast-ico { background: var(--paper); }
 .toast-snack.err  { border-color: var(--red); box-shadow: 5px 5px 0 var(--red); }
 .toast-snack.warn { box-shadow: 5px 5px 0 var(--gold); }
+/* ===================================================================
+   RESPONSIVE — десктопная вёрстка (Telegram Desktop / браузер)
+   Вставлять В КОНЕЦ styles.css. Блок самодостаточен: он переопределяет
+   мобильные значения через переменные, поэтому старые правила можно
+   не трогать (но лучше почистить — см. список правок).
+   Мобилка (<768px) не меняется ни на пиксель.
+   =================================================================== */
+
+/* --- 1. Переменные раскладки. Значения = текущая мобильная вёрстка --- */
+:root {
+  --app-w:      540px;  /* ширина колонки приложения                     */
+  --content-w:  540px;  /* макс. ширина контента внутри колонки          */
+  --rail-w:     0px;    /* боковое меню; > 0 только на десктопе          */
+  --topbar-h:   65px;   /* реальная высота .topbar (замерено в DevTools) */
+  --tabbar-h:   74px;   /* реальная высота .tabbar (замерено в DevTools) */
+  --main-pad-x: 14px;
+  --main-pad-t: 16px;
+  --main-pad-b: 90px;
+}
+
+/* --- 2. База: те же размеры, но через переменные --- */
+#app {
+  max-width: var(--app-w);
+  padding-left: var(--rail-w);
+}
+main {
+  padding: var(--main-pad-t) var(--main-pad-x) var(--main-pad-b);
+}
+.tabbar {
+  max-width: var(--app-w);
+  height: var(--tabbar-h);
+}
+/* Раньше: calc(100vh - 60px - 56px) — магические числа не совпадали с
+   реальными 65/74, из-за чего строка ввода уезжала на 23px ПОД таббар. */
+.conv-screen,
+.guru-screen {
+  height: calc(100dvh - var(--topbar-h) - var(--tabbar-h));
+  margin: calc(-1 * var(--main-pad-t)) calc(-1 * var(--main-pad-x)) calc(-1 * var(--main-pad-b));
+}
+#toast-root {
+  bottom: calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom));
+  left: var(--rail-w);
+}
+/* max-width на position:fixed + right:18px ничего не ограничивал */
+.fab-wrap { max-width: none; }
+
+/* ===================================================================
+   3. ПЛАНШЕТ / УЗКИЙ ДЕСКТОП  ≥ 768px
+   Колонка распахивается, таббар остаётся снизу, но становится шире.
+   =================================================================== */
+@media (min-width: 768px) {
+  :root {
+    --app-w:      100%;
+    --content-w:  760px;
+    --main-pad-x: 24px;
+    --main-pad-t: 20px;
+    --main-pad-b: calc(74px + 24px);
+  }
+
+  #app { margin: 0; }
+
+  /* контент не растекается на всю ширину — держим читаемую колонку.
+     conv/guru исключены: они распахнуты на всю ширину (шапка + строка
+     ввода во всю ширину), а колонку центрирует .guru-log / .conv-body. */
+  #screen-root > .screen:not(.conv-screen):not(.guru-screen) {
+    max-width: var(--content-w); margin-inline: auto;
+  }
+
+  .tabbar { max-width: 620px; }
+  .topbar { padding-inline: max(24px, calc((100% - var(--content-w)) / 2)); }
+
+  /* 4 KPI-карточки в ряд вместо 2×2.
+     Скоуп именно на dashboard: в analytics третья .stat имеет инлайновый
+     grid-column:span 2, рассчитанный на двухколоночную сетку. */
+  #screen-root[data-screen="dashboard"] .stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .achievements { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+
+  /* чат/Guru: центрируем внутреннюю колонку без лишних обёрток */
+  .guru-log, .conv-body { width: 100%; max-width: var(--content-w); margin-inline: auto; }
+  .conv-header, .conv-input, .guru-input-bar {
+    padding-inline: max(12px, calc((100% - var(--content-w)) / 2));
+  }
+  .conv-bubble { max-width: min(78%, 560px); }
+  .guru-bubble { max-width: min(86%, 620px); }
+  .guru-card   { max-width: 760px; }
+
+  /* FAB прижимается к правому краю контентной колонки, а не окна */
+  .fab-wrap { right: max(18px, calc(50vw - var(--content-w) / 2 + 18px)); }
+
+  /* bottom-sheet → нормальный центрированный диалог */
+  .modal-backdrop { align-items: center; }
+  .modal-sheet {
+    max-width: 520px; max-height: 80vh;
+    border: 3px solid var(--ink); border-radius: 0;
+    box-shadow: var(--sh-lg);
+  }
+}
+
+/* ===================================================================
+   4. ДЕСКТОП  ≥ 1100px
+   Таббар превращается в боковое меню слева, контент — широкая колонка.
+   =================================================================== */
+@media (min-width: 1100px) {
+  :root {
+    --rail-w:     232px;
+    --tabbar-h:   0px;          /* снизу таббара больше нет */
+    --content-w:  1040px;
+    --main-pad-x: 32px;
+    --main-pad-t: 24px;
+    --main-pad-b: 32px;
+  }
+
+  /* --- боковое меню --- */
+  .tabbar {
+    top: 0; bottom: 0; left: 0; right: auto;
+    width: var(--rail-w); height: auto; max-width: none; margin: 0;
+    flex-direction: column; gap: 4px;
+    padding: 14px 10px calc(14px + env(safe-area-inset-bottom));
+    border-top: 0;
+    border-right: 3px solid var(--ink);
+    overflow-y: auto;
+  }
+  .tab {
+    flex: 0 0 auto;
+    flex-direction: row; justify-content: flex-start; align-items: center;
+    gap: 12px; padding: 11px 12px;
+    font-size: 14px; text-align: left;
+  }
+  .tab-ico { margin-bottom: 0; width: 22px; height: 22px; flex: 0 0 22px; }
+  .tab-lbl { flex: 1 1 auto; text-align: left; }
+  .tab-badge { position: static; margin-left: auto; flex: 0 0 auto; }
+
+  /* --- шапка живёт справа от рейла, её контент выровнен по колонке --- */
+  .topbar { padding-inline: max(32px, calc((100% - var(--content-w)) / 2)); }
+
+  /* --- FAB и тосты живут в контентной области, а не в окне --- */
+  .fab-wrap  { right: 28px; bottom: 28px; }
+  #toast-root { bottom: 20px; }
+
+  /* --- две колонки на чисто-списочных экранах ---
+     Требует одной строки в app.js render():
+       document.getElementById('screen-root').dataset.screen = name;   */
+  #screen-root[data-screen="outreach"]  > .screen,
+  #screen-root[data-screen="more"]      > .screen,
+  #screen-root[data-screen="brain"]     > .screen,
+  #screen-root[data-screen="lists"]     > .screen,
+  #screen-root[data-screen="templates"] > .screen,
+  #screen-root[data-screen="accounts"]  > .screen,
+  #screen-root[data-screen="campaigns"] > .screen {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+  /* по умолчанию всё во всю ширину… */
+  #screen-root[data-screen="outreach"]  > .screen > *,
+  #screen-root[data-screen="more"]      > .screen > *,
+  #screen-root[data-screen="brain"]     > .screen > *,
+  #screen-root[data-screen="lists"]     > .screen > *,
+  #screen-root[data-screen="templates"] > .screen > *,
+  #screen-root[data-screen="accounts"]  > .screen > *,
+  #screen-root[data-screen="campaigns"] > .screen > * { grid-column: 1 / -1; }
+  /* …кроме однотипных карточек — они плиткой */
+  #screen-root[data-screen="outreach"]  > .screen > .list-item,
+  #screen-root[data-screen="more"]      > .screen > .list-item,
+  #screen-root[data-screen="brain"]     > .screen > .list-item,
+  #screen-root[data-screen="lists"]     > .screen > .list-item,
+  #screen-root[data-screen="templates"] > .screen > .list-item,
+  #screen-root[data-screen="accounts"]  > .screen > .list-item,
+  #screen-root[data-screen="campaigns"] > .screen > .list-item,
+  #screen-root[data-screen="campaigns"] > .screen > .campaign { grid-column: auto; }
+
+  /* hover-состояния имеют смысл только там, где есть мышь */
+  .list-item:hover, .campaign:hover { box-shadow: var(--sh-lg); }
+}
+
+/* ===================================================================
+   5. Мышь/трекпад — уплотняем тач-таргеты, они больше не нужны
+   =================================================================== */
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+  .list-item { padding: 12px 14px; }
+  main { scrollbar-width: thin; }
+}
