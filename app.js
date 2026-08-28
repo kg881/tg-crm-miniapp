@@ -2089,7 +2089,12 @@ const screens = {
       }
       return `<div class="guru-msg guru-msg-${escape(m.role)}"><div class="guru-bubble">${escape(m.content).replace(/\n/g,'<br>')}</div></div>`;
     };
-    const standalonePending = pending
+    // Показываем не только pending: карточка, ушедшая в отправку, должна остаться на
+    // экране с индикатором, а упавшая — показать причину и кнопку «Повторить».
+    // Раньше фильтр был только по pending: approve заставлял карточку исчезнуть,
+    // а failed не показывался вообще — ошибку было негде увидеть.
+    const standaloneLive = actions
+      .filter(a => a.status === 'pending' || a.status === 'approved' || a.status === 'failed')
       .filter(a => !msgs.some(m => (m.tool_calls||[]).some(tc => tc.action_id === a.id)))
       .sort((a, b) => a.id - b.id);   // старые сверху, свежие снизу — под auto-scroll
     const settings = st?.settings || { default_mode: 'admin_approved', conv_counts: {}, modes: ['admin_approved','full_access','off'] };
@@ -2112,7 +2117,7 @@ const screens = {
             Я сгенерю черновик — ты апрувнешь — улетит лиду.</div>
           </div>` : ''}
         ${msgs.map(msgHTML).join('')}
-        ${standalonePending.map(draftHTML).join('')}
+        ${standaloneLive.map(draftHTML).join('')}
       </div>
       <div class="guru-input-bar">
         <textarea id="guru-input" rows="2" placeholder="Задача для Guru…"></textarea>
