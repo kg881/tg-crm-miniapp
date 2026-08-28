@@ -1495,6 +1495,7 @@ const screens = {
           `).join('')}
         </div>
         ` : ''}
+        <div id="attach-status" class="muted small" style="display:none;padding:6px 10px;border-top:1px solid var(--border);background:var(--bg)"></div>
         <div class="conv-input">
           <button class="icon-btn" data-action="attach-file" data-id="${st.conv_id}" title="Прикрепить файл" data-pix="plus"></button>
           <input type="file" id="attach-input" style="display:none"
@@ -2060,7 +2061,7 @@ const screens = {
       <div class="guru-card guru-card-${escape(a.status)}" data-act-id="${a.id}">
         <div class="guru-card-head">
           <div class="guru-card-title">${a.trigger === 'incoming_reply' ? '📨 Ответ лиду:' : '✎ Черновик для:'} <b>${escape(a.target_label || a.target_username || a.target_phone || '?')}</b></div>
-          <div class="guru-card-meta">${escape(a.status)}${a.trigger === 'incoming_reply' ? (a.auto ? ' · авто' : ' · ждёт апрува') : ''}</div>
+          <div class="guru-card-meta">${a.status === 'approved' ? '⏳ отправляется' : escape(a.status) + (a.trigger === 'incoming_reply' ? (a.auto ? ' · авто' : ' · ждёт апрува') : '')}</div>
         </div>
         ${a.intent ? `<div class="guru-card-intent">${a.trigger === 'incoming_reply' ? '<span class="muted small">Входящее:</span> ' : ''}«${escape(a.intent.replace(/^Ответ на: «|»$/g,''))}»</div>` : ''}
         ${a.asset_id ? `<div class="guru-card-attach">📎 приложен файл #${a.asset_id} — уйдёт вместе с текстом</div>` : ''}
@@ -2071,6 +2072,8 @@ const screens = {
             <button class="btn" data-action="guru-edit" data-id="${a.id}" title="Сохранить правки текста (без отправки)">Сохранить правки</button>
             <button class="btn ghost" data-action="guru-reject" data-id="${a.id}" title="Отклонить черновик — не отправлять">Отклонить</button>
           </div>` : ''}
+        ${a.status === 'approved' ? `
+          <div class="guru-card-attach">⏳ отправляю${a.asset_id ? ' — файл заливается в Telegram, это может занять до минуты' : '…'}</div>` : ''}
         ${a.status === 'failed' ? `
           <div class="guru-actions">
             <button class="btn primary" data-action="guru-approve" data-id="${a.id}" title="Сбросить failed → попробовать отправить ещё раз">↻ Повторить</button>
@@ -2649,6 +2652,21 @@ async function guruSend() {
 
 const _approving = new Set();   // защита от двойного клика: второй тап слал лиду дубль
 
+/** Ждём, пока фоновая отправка закроется. Возвращает финальный action (или null). */
+async function waitForAction(id, { every = 2500, limit = 240000 } = {}) {
+  const deadline = Date.now() + limit;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, every));
+    let all;
+    try { all = await API.guru.actions(); }
+    catch { continue; }                       // сеть моргнула — просто следующий круг
+    const a = (all || []).find(x => x.id === id);
+    if (!a) return { status: 'missing' };     // action закрыт и убран из выдачи
+    if (a.status !== 'approved' && a.status !== 'pending') return a;
+  }
+  return null;                                 // не дождались — фон живёт дальше сам
+}
+
 async function guruApprove(id) {
   if (_approving.has(id)) return;
   _approving.add(id);
@@ -2659,31 +2677,95 @@ async function guruApprove(id) {
     _approving.delete(id);
     btns.forEach(b => { b.disabled = false; if (label) b.textContent = label; });
   };
-  try { await API.guru.approve(id); toast('✓ Отправлено'); _done(); loadGuru(true); return; }
-  catch (e) {
+
+  // Бэкенд ставит action в очередь и отвечает сразу: заливка видео в Telegram идёт
+  // до минуты, и держать ради неё HTTP-запрос через туннель нельзя — рвётся.
+  try {
+    await API.guru.approve(id);
+  } catch (e) {
     _done();
-    // Backend мог выполнить отправку, но HTTP-ответ не дошёл (Telethon-таймаут / прокси).
-    // Перепроверяем реальный статус action перед тем как пугать юзера.
-    const httpMsg = (e.message || '').replace(/^\d+\s+send_failed:\s*/i, '');
-    let realStatus = null;
-    try {
-      const all = await API.guru.actions();
-      const a = (all || []).find(x => x.id === id);
-      realStatus = a ? a.status : 'missing';
-    } catch {}
-    if (realStatus === 'executed') {
-      toast('✓ Отправлено (HTTP-ответ потерялся)');
-    } else if (realStatus === 'missing') {
-      toast('✓ Отправлено (action закрыт)');
-    } else if (realStatus === 'failed') {
-      toast(`Не отправилось: ${httpMsg || 'failed'}`);
-    } else {
-      // pending / неизвестно — даём честный «Load failed»
-      toast(`Не отправилось: ${httpMsg}`);
-    }
+    toast(`Не отправилось: ${(e.message || '').replace(/^\d+\s+/, '')}`);
     loadGuru(true);
+    return;
+  }
+
+  toast('Отправляю…');
+  loadGuru(true);
+  const a = await waitForAction(id);
+  _done();
+  if (!a)                          toast('Отправка идёт дольше обычного — статус обновится сам');
+  else if (a.status === 'failed')  toast(`Не отправилось: ${a.error || 'ошибка'}`);
+  else                             toast('✓ Отправлено');
+  loadGuru(true);
+}
+// ── Вложения в чате ─────────────────────────────────────────────────────────────
+// Один multipart-запрос через туннель держит около 5 МБ — 20-МБ видео так не уходило
+// вовсе. Крупный файл сначала льётся в библиотеку кусками по 2 МБ (тот же путь, что
+// и «Файлы Guru»), потом бэк отправляет его в Telegram фоном, а мы следим по job_id.
+const ATTACH_DIRECT_LIMIT = 4 * 1024 * 1024;
+const ASSET_EXT = /\.(mp4|mov|webm|mkv|avi|jpg|jpeg|png|webp|gif|pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/i;
+
+async function sendAttachment(cid, f, caption) {
+  const box = document.getElementById('attach-status');
+  const say = (t) => { if (box) { box.style.display = 'block'; box.textContent = t; } };
+  const hide = () => { if (box) box.style.display = 'none'; };
+  const mb = (b) => (b / 1024 / 1024).toFixed(1);
+
+  // Маленькие файлы — прямым запросом, как раньше: быстрее и без лишнего ассета.
+  if (f.size <= ATTACH_DIRECT_LIMIT) {
+    say(`Отправляю ${f.name}…`);
+    try {
+      await API.inbox.replyMedia(cid, f, caption);
+      hide(); openConv(cid);
+    } catch (e) { hide(); toast(`Не отправилось: ${cleanErr(e)}`); }
+    return;
+  }
+
+  if (!ASSET_EXT.test(f.name)) {
+    toast(`${f.name} — ${mb(f.size)} МБ. Такой тип больше 4 МБ отправить нельзя, ужми файл.`);
+    return;
+  }
+
+  let assetId = null;
+  try {
+    say(`Загружаю ${f.name} (${mb(f.size)} МБ)… 0%`);
+    const asset = await API.assets.uploadChunked(f, f.name, null, null,
+      (percent) => say(`Загружаю ${f.name} (${mb(f.size)} МБ)… ${percent}%`));
+    assetId = asset.id;
+
+    say('Отправляю в Telegram…');
+    const job = await API.inbox.replyAsset(cid, assetId, caption);
+    const res = await waitForSendJob(job.job_id);
+    hide();
+    if (res === 'sent')        { toast('✓ Отправлено'); openConv(cid); }
+    else if (res === 'failed') { toast(`Не отправилось: ${lastJobError || 'ошибка'}`); }
+    else                       { toast('Отправка идёт — тред обновится сам'); openConv(cid); }
+  } catch (e) {
+    hide();
+    toast(`Не отправилось: ${cleanErr(e)}`);
+  } finally {
+    // Файл жил в библиотеке только ради доставки — не засоряем «Файлы Guru».
+    if (assetId) { try { await API.assets.remove(assetId); } catch {} }
   }
 }
+
+let lastJobError = null;
+async function waitForSendJob(jobId, { every = 2000, limit = 300000 } = {}) {
+  lastJobError = null;
+  const deadline = Date.now() + limit;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, every));
+    let j;
+    try { j = await API.inbox.sendJob(jobId); } catch { continue; }
+    if (j.status === 'sent')    return 'sent';
+    if (j.status === 'failed')  { lastJobError = j.error; return 'failed'; }
+    if (j.status === 'unknown') return 'unknown';   // бэк перезапустился — тред покажет правду
+  }
+  return 'unknown';
+}
+
+const cleanErr = (e) => (e?.message || '').replace(/^\d+\s+/, '') || 'ошибка';
+
 async function guruReject(id) {
   try { await API.guru.reject(id); loadGuru(true); }
   catch (e) { toast(`Ошибка: ${e.message}`); }
@@ -3316,12 +3398,11 @@ async function handleAction(action, el, e) {
       const cid = parseInt(el.dataset.id, 10);
       const input = document.getElementById('attach-input');
       input.onchange = async () => {
-        const f = input.files[0]; if (!f) return;
+        const f = input.files[0];
+        input.value = '';                       // иначе повторный выбор того же файла не даст change
+        if (!f) return;
         const caption = document.getElementById('reply-input').value.trim();
-        try {
-          await API.inbox.replyMedia(cid, f, caption);
-          openConv(cid);
-        } catch (e) { toast(`Ошибка: ${e.message}`); }
+        await sendAttachment(cid, f, caption);
       };
       input.click();
       break;

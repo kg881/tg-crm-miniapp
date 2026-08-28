@@ -665,6 +665,7 @@ main {
 .guru-card-pending  { background: var(--gold); }
 .guru-card-executed { background: var(--mint); color: var(--card); }
 .guru-card-rejected, .guru-card-failed { background: var(--card); color: var(--ink-2); opacity: .7; }
+.guru-card-approved { background: var(--card); border-style: dashed; }   /* отправка в процессе */
 .guru-card-head { display: flex; justify-content: space-between; align-items: center; }
 .guru-card-title {
   font-family: var(--font-ui); font-weight: 600; font-size: 13px;

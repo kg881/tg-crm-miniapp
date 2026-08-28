@@ -46,6 +46,8 @@ const API = {
       if (caption) fd.append('caption', caption);
       return API.req('POST', `/api/inbox/conversations/${cid}/reply_media`, fd);
     },
+    replyAsset:(cid, asset_id, caption='') => API.req('POST', `/api/inbox/conversations/${cid}/reply_asset`, { asset_id, caption }),
+    sendJob:   (jobId)        => API.req('GET',    `/api/inbox/send_jobs/${jobId}`),
     suggest:   (cid)          => API.req('POST',   `/api/inbox/conversations/${cid}/suggest_reply`),
     remove:    (cid)          => API.req('DELETE', `/api/inbox/conversations/${cid}`),
     bulkDelete:(ids)          => API.req('POST',   '/api/inbox/conversations/bulk_delete', { ids }),
