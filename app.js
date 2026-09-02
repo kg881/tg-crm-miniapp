@@ -453,6 +453,57 @@ document.addEventListener('app:filechange', async (ev) => {
 });
 
 // ===== FAB (плавающая «+» с раскрывающимися действиями) =====
+// ---------- Telegram Premium: срок и сигнал ----------
+// Без Premium бэк жёстко режет дневной лимит до 8 ЛС (backend/services/sender.py), поэтому
+// «сколько осталось» — рабочий параметр, а не справка. Пороги: >14 дн спокойно, 4–14 жёлтый,
+// ≤3 и просрочка — красный. Дату тянет backend/services/premium.py, руками правится в карточке.
+function fmtDay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+}
+
+function premiumInfo(a) {
+  const days = (a && a.premium_days_left != null) ? a.premium_days_left : null;
+  const until = a ? a.premium_until : null;
+  if (!a || (!a.is_premium && days == null)) {
+    return { level: 'off', urgent: false, days,
+             text: 'Без Premium', hint: 'Лимит зарезан до 8 ЛС в сутки',
+             color: '#6b7280', bg: 'rgba(107,114,128,.14)' };
+  }
+  if (days == null) {
+    return { level: 'unknown', urgent: false, days,
+             text: 'Premium · срок неизвестен', hint: 'Telegram не отдал дату — впиши руками',
+             color: '#b45309', bg: 'rgba(180,83,9,.14)' };
+  }
+  if (days < 0) {
+    return { level: 'expired', urgent: true, days,
+             text: `Premium истёк ${fmtDay(until)}`, hint: 'Лимит уже срезан до 8 ЛС в сутки — продли',
+             color: '#b91c1c', bg: 'rgba(185,28,28,.14)' };
+  }
+  if (days <= 3) {
+    return { level: 'critical', urgent: true, days,
+             text: `Premium ${days} дн.`, hint: `Кончается ${fmtDay(until)} — продлевай сейчас`,
+             color: '#b91c1c', bg: 'rgba(185,28,28,.14)' };
+  }
+  if (days <= 14) {
+    return { level: 'soon', urgent: true, days,
+             text: `Premium ${days} дн.`, hint: `До ${fmtDay(until)} — пора планировать продление`,
+             color: '#b45309', bg: 'rgba(180,83,9,.14)' };
+  }
+  return { level: 'ok', urgent: false, days,
+           text: `Premium ${days} дн.`, hint: `Оплачен до ${fmtDay(until)}`,
+           color: '#16a34a', bg: 'rgba(22,163,74,.14)' };
+}
+
+function premiumChip(a) {
+  const p = premiumInfo(a);
+  return `<span title="${escape(p.hint)}" style="display:inline-flex;align-items:center;gap:4px;
+    font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;
+    color:${p.color};background:${p.bg}">${p.urgent ? '⚠ ' : ''}${escape(p.text)}</span>`;
+}
+
 function accountsFabHTML() {
   return `
     <div class="fab-wrap" id="acc-fab">
@@ -658,6 +709,7 @@ const screens = {
                 <div class="lead-body">
                   <div class="lead-name">${escape(a.first_name || a.phone)}${a.username ? ` <span style="color:var(--text-muted);font-weight:400">@${escape(a.username)}</span>` : ''}</div>
                   <div class="lead-status">${escape(a.phone)}${a.proxy ? ' · proxy ✓' : ''}</div>
+                  <div style="margin-top:5px">${premiumChip(a)}</div>
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -719,6 +771,29 @@ const screens = {
             или полный URL <code style="background:var(--bg-soft);padding:1px 4px;border-radius:3px">socks5://user:pass@host:port</code>
           </div>
         </div>
+
+        <div class="section-title">⭐ Telegram Premium</div>
+        ${(() => { const p = premiumInfo(a); return `
+        <div class="card" ${p.urgent ? `style="border-left:3px solid ${p.color}"` : ''}>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div style="min-width:0">
+              <div style="font-size:20px;font-weight:700;color:${p.color}">${p.urgent ? '⚠ ' : ''}${escape(p.text)}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${escape(p.hint)}</div>
+            </div>
+            <button class="btn secondary" data-action="acc-premium-refresh" data-id="${a.id}"
+                    style="padding:6px 12px;font-size:12px;white-space:nowrap">Обновить</button>
+          </div>
+          <label style="font-size:12px;color:var(--text-muted);margin-top:12px;display:block">Дата окончания</label>
+          <input id="ad-premium-until" type="date" value="${a.premium_until ? a.premium_until.slice(0,10) : ''}"
+                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-top:4px">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">
+            Обычно подтягивается из Telegram сама. Если способ оплаты дату не отдаёт — впиши руками, отсчёт и напоминания заработают так же.<br>
+            ${a.premium_source ? `Источник: <b>${escape(a.premium_source)}</b>` : ''}${a.premium_checked_at ? ` · проверено ${escape(fmtDay(a.premium_checked_at))}` : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+            За 7 дней до конца бот пришлёт напоминание в личку.
+          </div>
+        </div>`; })()}
 
         <div class="section-title">⏰ Расписание отправки</div>
         ${scheduleEditorHTML(a.schedule)}
@@ -2459,7 +2534,12 @@ async function loadOutreachSummaries() {
       API.campaigns.list().catch(() => []),
     ]);
     const $$ = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
-    $$('accounts-summary',  accs.length ? `${accs.length} подключено · ${accs.filter(a=>a.status==='active').length} активны` : 'Нет аккаунтов · подключите');
+    const premWarn = accs.map(premiumInfo).filter(p => p.urgent)
+                         .sort((x, y) => (x.days ?? 0) - (y.days ?? 0))[0];
+    $$('accounts-summary',  accs.length
+      ? `${accs.length} подключено · ${accs.filter(a=>a.status==='active').length} активны`
+        + (premWarn ? ` · ⚠ ${premWarn.text}` : '')
+      : 'Нет аккаунтов · подключите');
     $$('lists-summary',     lists.length ? `${lists.length} списков · ${lists.reduce((s,l)=>s+l.count,0)} лидов` : 'Нет списков · импортируйте');
     $$('templates-summary', tmpls.length ? `${tmpls.length} шаблонов` : 'Нет шаблонов · создайте');
     $$('campaigns-summary', camps.length ? `${camps.length} всего · ${camps.filter(c=>c.status==='live').length} live` : 'Нет кампаний');
@@ -3107,11 +3187,32 @@ async function handleAction(action, el, e) {
         schedule:           collectSchedule(),
         send_pause_min:     parseInt(document.getElementById('ad-pause-min')?.value || '30', 10),
         send_pause_max:     parseInt(document.getElementById('ad-pause-max')?.value || '90', 10),
+        premium_until:      document.getElementById('ad-premium-until')?.value || '',
       };
       if (data.send_pause_min < 1) data.send_pause_min = 1;
       if (data.send_pause_max < data.send_pause_min) data.send_pause_max = data.send_pause_min;
       try { await API.accounts.update(id, data); toast('✅ Сохранено'); loadAccounts(); }
       catch (e) { toast(`Ошибка: ${e.message}`); }
+      break;
+    }
+    case 'acc-premium-refresh': {
+      const id = parseInt(el.dataset.id, 10);
+      el.disabled = true; el.textContent = '…';
+      try {
+        const acc = await API.accounts.refreshPremium(id);
+        const p = premiumInfo(acc);
+        toast(p.level === 'unknown'
+          ? 'Telegram не отдал дату — впиши руками'
+          : `✅ ${p.text}`);
+        // обновляем и кэш списка, иначе чип на карточке останется со старой датой
+        const accs = screenState.accounts?.accounts || [];
+        const i = accs.findIndex(x => x.id === id);
+        if (i >= 0) accs[i] = acc;
+        render('account_detail', { account: acc, stat: (screenState.accounts?.stats || {})[id] || {} });
+      } catch (e) {
+        toast(`Ошибка: ${e.message}`);
+        el.disabled = false; el.textContent = 'Обновить';
+      }
       break;
     }
     case 'account-toggle': {

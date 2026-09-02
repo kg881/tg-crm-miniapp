@@ -34,6 +34,7 @@ const API = {
     folders:   (id)      => API.req('GET',    `/api/accounts/${id}/folders`),
     importFolder: (id, data) => API.req('POST', `/api/accounts/${id}/folders/import`, data),
     qrJoin:    (id, data) => API.req('POST',  `/api/accounts/${id}/qr/join`, data),
+    refreshPremium: (id) => API.req('POST', `/api/accounts/${id}/premium/refresh`),
   },
 
   inbox: {
