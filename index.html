@@ -1,39 +1,16 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BitOK CRM</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f0f0f'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='bold' fill='%23e8c547' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="styles.css?v=1790081640">
+<script>
+  // Мини-ап переехал на личный GitHub. Переносим параметры и hash: в hash Telegram
+  // передаёт tgWebAppData, без него новая сборка не авторизуется.
+  location.replace('https://konstantin-gaft.github.io/tg-crm-miniapp/' + location.search + location.hash);
+</script>
 </head>
-<body>
-<div id="app">
-  <main id="screen-root"></main>
-
-  <nav class="tabbar">
-    <button class="tab" data-screen="dashboard">
-      <span class="tab-ico" data-pix="home"></span><span class="tab-lbl">Главная</span>
-    </button>
-    <button class="tab" data-screen="outreach">
-      <span class="tab-ico" data-pix="paper_plane"></span><span class="tab-lbl">Аутрич</span>
-    </button>
-    <button class="tab" data-screen="inbox">
-      <span class="tab-ico" data-pix="inbox"></span><span class="tab-lbl">Inbox</span>
-    </button>
-    <button class="tab" data-screen="guru">
-      <span class="tab-ico" data-pix="ninja"></span><span class="tab-lbl">Guru</span>
-    </button>
-    <button class="tab" data-screen="more">
-      <span class="tab-ico" data-pix="dot3"></span><span class="tab-lbl">Ещё</span>
-    </button>
-  </nav>
-</div>
-
-<script src="api.js?v=1790081640"></script>
-<script src="app.js?v=1790081640"></script>
+<body style="font-family:-apple-system,system-ui,sans-serif;padding:24px">
+<p>Мини-ап переехал: <a href="https://konstantin-gaft.github.io/tg-crm-miniapp/">открыть новую версию</a></p>
 </body>
 </html>
